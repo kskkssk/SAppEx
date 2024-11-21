@@ -1,13 +1,10 @@
-version: 3.10
+version: '3.10'
 
 services:
   app:
     build:
       context: .
       dockerfile: ./app/Dockerfile
-    depends_on:
-      - db
-      - rabbit-mq
     ports:
       - "5000:5000"
     env_file:
@@ -15,6 +12,8 @@ services:
     environment:
       - PYTHONPATH=/app
       - FLASK_ENV=development
+    volumes:
+      - ./app:/app
     networks:
       - backend
 
@@ -26,12 +25,15 @@ services:
     networks:
       - backend
 
-  networks:
-    - backend
-
   redis:
     image: "redis:alpine"
     ports:
       - "6379:6379"
     env_file:
       - ./.env
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge

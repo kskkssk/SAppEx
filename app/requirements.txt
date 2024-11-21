@@ -3,4 +3,6 @@ Flask==3.1.0
 flask_sqlalchemy==3.1.1
 pandas==2.0.0
 redis==5.2.0
-selenium==4.26.1
+selenium==4.11.2
+numpy<2
+webdriver-manager==4.0.2

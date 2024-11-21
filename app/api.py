@@ -1,21 +1,25 @@
 from flask import Flask, render_template, request, send_file
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service as ChromeService
+from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.core.os_manager import ChromeType
 from bs4 import BeautifulSoup
-from app.database import db
+from database import db
 from datetime import timedelta
 import pandas as pd
 import random
 import time
 import tempfile
 import os
+import json
 import redis
 
 app = Flask(__name__)
-redis_instance = redis.Redis(host='localhost', port=6379, db=0)
+redis_instance = redis.Redis(host='redis', port=6379, db=0)
 
 SECRET_KEY = os.getenv('SECRET_KEY')
-REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+REDIS_URL = os.getenv('REDIS_URL')
 DB_HOST = os.getenv('DB_HOST')
 DB_PORT = os.getenv('DB_PORT')
 DB_USER = os.getenv('DB_USER')
@@ -50,7 +54,7 @@ class Search:
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-        driver = webdriver.Chrome(options=options)
+        driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()), options=options)
         return driver
 
     def search(self, start=0):
@@ -128,7 +132,8 @@ def results():
     search = Search(pages=pages, query=query, fr=from_year, to=to_year)
     if search:
         df, length = search.scrape_multiple_pages()
-        redis_instance.set('data', df.to_json())
+        df_dict = df.to_dict(orient='index')
+        redis_instance.set('data', json.dumps(df_dict))
         redis_instance.set('query', query)
         return render_template('results.html', data=df.head().to_html(index=False, classes='dataframe'), length=length)
     else:
@@ -139,13 +144,16 @@ def results():
 def download():
     if "data" not in redis_instance:
         return "Ошибка: Данные не найдены. Пожалуйста, выполните поиск"
-    df = pd.read_json(redis_instance.get('data'))
+    df_dict = json.loads(redis_instance.get('data'))
+    df = pd.DataFrame.from_dict(df_dict, orient='index')
+    query = redis_instance.get("query")
+    if query:
+        query = query.decode('utf-8')
     with tempfile.NamedTemporaryFile(delete=False, mode='w', newline='', suffix='.csv') as temp_file:
         df.to_csv(temp_file, index=False)
         temp_file_path = temp_file.name
-
     try:
-        return send_file(temp_file_path, as_attachment=True, download_name=f'{redis_instance.get("query")}.csv')
+        return send_file(temp_file_path, as_attachment=True, download_name=f'{query}.csv')
     finally:
         os.remove(temp_file_path)
 
@@ -155,4 +163,4 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     '''
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
