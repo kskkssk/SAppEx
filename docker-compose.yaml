@@ -7,6 +7,8 @@ services:
       dockerfile: ./app/Dockerfile
     ports:
       - "5000:5000"
+    depends_on:
+      - db
     env_file:
       - ./.env
     environment:
@@ -33,6 +35,22 @@ services:
       - ./.env
     networks:
       - backend
+
+  db:
+    image: postgres:latest
+    user: postgres
+    ports:
+      - "5432:5432"
+    env_file:
+      - ./.env
+    networks:
+      - backend
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
 
 networks:
   backend:
