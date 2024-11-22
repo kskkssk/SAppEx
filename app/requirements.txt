@@ -1,8 +1,10 @@
 beautifulsoup4==4.12.3
+Bio==1.7.1
+biopython==1.84
 Flask==3.1.0
 flask_sqlalchemy==3.1.1
-pandas==2.0.0
+pandas==2.2.3
 redis==5.2.0
-selenium==4.11.2
-numpy<2
-webdriver-manager==4.0.2
+selenium==4.26.1
+serpapi==0.1.5
+webdriver_manager==4.0.2

@@ -1,5 +1,7 @@
 from flask import Flask, render_template, request, send_file
 from selenium import webdriver
+from serpapi import GoogleSearch
+from Bio import Entrez, Medline
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
@@ -40,81 +42,107 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=15)
 app.config.update(SESSION_COOKIE_SAMESITE="None", SESSION_COOKIE_SECURE=True)
 
 
-class Search:
-    def __init__(self, pages: int, query: str, fr, to):
-        self.pages = int(pages)
-        self.query = query
-        self.fr = fr
-        self.to = to
-        self.driver = self.init_driver()
+def process_scholar(results):
+    for article in results:
+        doi = None
+        title = None
+        link = None
+        snippet = None
+        summary = None
+        authors_name = None
+        title = article['title']
+        link = article['link']
+        if link:
+            if '10.' in link:
+                doi = '/'.join(link[link.find('10.'):].split('/')[:2])
+        snippet = article['snippet']
+        publication_info = article['publication_info']
+        if publication_info:
+            summary = publication_info['summary']
+            if 'authors' in publication_info:
+                authors = publication_info['authors']
+                if authors:
+                    authors_info = authors[0]
+                    if authors_info:
+                        authors_name = authors_info['name']
+    source = 'google scholar'
 
-    @staticmethod
-    def init_driver():
-        options = Options()
-        options.add_argument("--headless")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()), options=options)
-        return driver
 
-    def search(self, start=0):
-        base_url = 'https://scholar.google.com/scholar'
-        params = f"?start={start}&q={self.query}&hl=ru&as_sdt=0,5&as_ylo={self.fr}&as_yhi={self.to}"
-        self.driver.get(base_url + params)
-        self.driver.implicitly_wait(10)
-        return self.driver.page_source
+def get_scholar(query, api_key, start, page_size, as_ylo, as_yhi):
+    params = {
+        "engine": "google_scholar",
+        "q": query,
+        "api_key": api_key,
+        "start": start,
+        "num": page_size,
+        "as_yhi": as_yhi,  # to
+        "as_ylo": as_ylo  # from
+    }
 
-    @staticmethod
-    def parse_content(html):
-        soup = BeautifulSoup(html, 'html.parser')
-        articles = []
-        for article in soup.select('.gs_ri'):
-            title, href, authors, snippet, doi = None, None, None, None, None
+    search = GoogleSearch(params)
+    results = search.get_dict()
+    organic_results = results["organic_results"]
+    return organic_results
 
-            title_tag = article.select_one('.gs_rt')
-            if title_tag:
-                title = title_tag.text.strip()
-                link_tag = title_tag.find('a')
-                if link_tag:
-                    href = link_tag.get('href')
-                    if '10.' in href:
-                        doi = '/'.join(href[href.find('10.'):].split('/')[:2])
 
-            snippet_tag = article.select_one('.gs_rs')
-            if snippet_tag:
-                snippet = snippet_tag.text.strip()
+def get_pubmed(query, max_results=10, from_year=None, to_year=None):
+    Entrez.email = "kudasheva0.kudasheva@gmail.com"
+    results = []
+    if from_year and to_year:
+        search_term = f'{query} AND ({from_year} : {to_year}) AND (("{from_year}/01/01"[PDat] : "{to_year}/12/31"[PDat]))'
+    elif from_year:
+        search_term = f'{query} AND (("{from_year}/01/01"[PDat] : "3000/12/31"[PDat]))'
+    elif to_year:
+        search_term = f'{query} AND (("0001/01/01"[PDat] : "{to_year}/12/31"[PDat]))'
+    else:
+        search_term = query
 
-            authors_tag = article.select_one('.gs_a')
-            if authors_tag:
-                authors = authors_tag.text.strip()
+    search_handle = Entrez.esearch(db="pubmed", term=search_term, retmax=max_results)
+    search_results = Entrez.read(search_handle)
+    search_handle.close()
 
-            articles.append({
-                'title': title,
-                'href': href,
-                'authors': authors,
-                'snippet': snippet,
-                'doi': doi
-            })
-        return articles
+    article_ids = search_results["IdList"]
 
-    def scrape_multiple_pages(self):
-        all_articles = []
-        for i in range(self.pages):
-            start = i * 10
-            if i > 2:
-                time.sleep(random.uniform(6, 10))
-            html_content = self.search(start=start)
-            articles = self.parse_content(html_content)
-            all_articles.extend(articles)
-            time.sleep(random.uniform(5, 7))
+    if not article_ids:
+        print("Статьи не найдены!")
+        return results
 
-        df = pd.DataFrame(all_articles)
-        length = len(all_articles)
-        return df, length
+    fetch_handle = Entrez.efetch(db="pubmed", id=",".join(article_ids), rettype="medline", retmode="text")
 
-    def download(self):
-        df, _ = self.scrape_multiple_pages()
-        df.to_csv(f"{self.query}.csv", index=False)
+    records = Medline.parse(fetch_handle)
+
+    for record in records:
+        pmc_id = record.get('PMC', None)
+        full_text = None
+        if pmc_id:
+            try:
+                handle = Entrez.efetch("pubmed", id=pmc_id, retmode="xml")
+                full_text = handle.read()
+                handle.close()
+            except Exception as e:
+                full_text = f"Текст не доступен {e}"
+        results.append({
+            "title": record.get("TI", "N/A"),
+            "authors": record.get("AU", "N/A"),
+            "source": record.get("SO", "N/A"),
+            "doi": record.get("LID", "N/A").replace("[doi]", "").strip(),
+            "abstract": record.get("AB", "N/A"),
+            "publication_date": record.get("DP", "N/A"),
+            "text": full_text
+        })
+
+    return results
+
+
+def process_pubmed(articles):
+    for article in articles:
+        print(f"  Название: {article['title']}")
+        print(f"  Авторы: {article['authors']}")
+        print(f"  Источник: {article['source']}")
+        print(f"  DOI: {article['doi']}")
+        print(f"  Аннотация: {article['abstract']}")
+        print(f"  Дата публикации: {article['publication_date']}")
+        print('\n')
 
 
 @app.route('/')
@@ -129,15 +157,26 @@ def results():
     from_year = request.form['from']
     to_year = request.form['to']
 
-    search = Search(pages=pages, query=query, fr=from_year, to=to_year)
-    if search:
-        df, length = search.scrape_multiple_pages()
-        df_dict = df.to_dict(orient='index')
-        redis_instance.set('data', json.dumps(df_dict))
-        redis_instance.set('query', query)
-        return render_template('results.html', data=df.head().to_html(index=False, classes='dataframe'), length=length)
-    else:
-        return "Ошибка: Поиск не был инициирован."
+    goo_articles = get_scholar(
+        query=query,
+        api_key=os.getenv("API_KEY"),
+        start=0,
+        page_size=pages,
+        as_ylo=from_year,
+        as_yhi=to_year
+    )
+    pub_articles = get_pubmed(
+        query=query,
+        max_results=pages,
+        from_year=from_year,
+        to_year=to_year
+    )
+
+        #redis_instance.set('data', json.dumps(df_dict))
+        #redis_instance.set('query', query)
+        #return render_template('results.html', data=df.head().to_html(index=False, classes='dataframe'), length=length)
+   # else:
+       # return "Ошибка: Поиск не был инициирован."
 
 
 @app.route('/download', methods=['GET'])
