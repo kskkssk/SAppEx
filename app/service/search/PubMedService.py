@@ -2,6 +2,8 @@ from Bio import Entrez, Medline
 
 
 def custom_term(query,
+                research_filters,
+                attributes,
                 from_year='0001',
                 from_month='01',
                 from_day='01',
@@ -11,6 +13,14 @@ def custom_term(query,
                 ):
     Entrez.email = "kudasheva0.kudasheva@gmail.com"
     search_term = f'{query} AND ({from_year} : {to_year}) AND (("{from_year}/{from_month}/{from_day}"[PDat] : "{to_year}/{to_month}/{to_day}"[PDat]))'
+    if research_filters:
+        filter_query = 'OR'.join([f'{filter}[Filter]' for filter in research_filters])
+        search_term = f"{search_term} AND {filter_query}"
+
+    if attributes:
+        filter_query = 'OR'.join([f'{filter}[Filter]' for filter in research_filters])
+        search_term = f"{search_term} AND {filter_query}"
+
     return search_term
 
 
