@@ -1,24 +1,20 @@
-from app.database import db
+from sqlalchemy import Integer, String, ForeignKey
+from app.database import Base
+from sqlalchemy.orm import relationship, mapped_column
 
 
-class Article(db.Model):
+class Article(Base):
 
     __tablename__ = 'articles'
 
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(1000), nullable=True)
-    snippet = db.Column(db.Text, nullable=True)
-    doi = db.Column(db.String(100), nullable=True)
-    link = db.Column(db.String(50), nullable=True)
-    summary = db.Column(db.Text, nullable=True)
-    authors = db.Column(db.String(500), nullable=True)
-    full_text = db.Column(db.Text, nullable=True)
-    database = db.Column(db.String(20), nullable=False)
-
-
-class Experiment(db.Model):
-
-    __tablename__ = 'experiments'
-
-    pass
-
+    id = mapped_column(Integer, primary_key=True)
+    title = mapped_column(String, unique=True, nullable=True)
+    snippet = mapped_column(String, nullable=True)
+    doi = mapped_column(String, unique=True, nullable=True)
+    link = mapped_column(String, unique=True, nullable=True)
+    summary = mapped_column(String, nullable=True)
+    authors = mapped_column(String, nullable=True)
+    full_text = mapped_column(String, nullable=True)
+    database = mapped_column(String, nullable=False)
+    query_term = mapped_column(Integer, ForeignKey('querys.term'))
+    query = relationship("Query", back_populates="article")

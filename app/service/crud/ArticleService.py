@@ -1,28 +1,43 @@
-from app.database import db
+from app.models.article import Article
+from app.models.query import Query
 
 
 class ArticleService:
+    def __init__(self, session):
+        self.session = session
 
-    @staticmethod
-    def add():
-        pass
+    def add(self, term: str, title: str, snippet: str, doi: str, link: str, summary: str, authors: str, full_text: str,
+            database: str):
+        query = self.session.query(Query).filter_by(term=term).first()
+        if not query:
+            raise ValueError("Query with such term does not exist")
+        article = self.session.query(Article).filter_by(title=title, query_term=term).first()
+        if not article:
+            new_article = Article(
+                title=title,
+                snippet=snippet,
+                doi=doi,
+                link=link,
+                summary=summary,
+                authors=authors,
+                full_text=full_text,
+                database=database,
+                query=query
+            )
+            self.session.add(new_article)
 
-    @staticmethod
-    def update():
-        pass
+    def delete(self, query: str):
+        articles = self.session.query(Article).filter_by(query=query).all()
+        self.session.delete(articles)
 
-    @staticmethod
-    def delete():
-        pass
+    def get_by_title(self, title: str):
+        article = self.session.query(Article).filter_by(title=title).first()
+        return article
 
-    @staticmethod
-    def get_by_title():
-        pass
+    def get_by_authors(self, authors: str):
+        article = self.session.query(Article).filter_by(authors=authors).first()
+        return article
 
-    @staticmethod
-    def get_by_authors():
-        pass
-
-    @staticmethod
-    def get_by_doi():
-        pass
+    def get_by_doi(self, doi: str):
+        article = self.session.query(Article).filter_by(doi=doi).first()
+        return article

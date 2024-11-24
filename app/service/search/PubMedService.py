@@ -2,8 +2,10 @@ from Bio import Entrez, Medline
 
 
 def custom_term(query,
+                medline,
                 research_filters,
                 attributes,
+                open_access=None,
                 from_year='0001',
                 from_month='01',
                 from_day='01',
@@ -20,6 +22,12 @@ def custom_term(query,
     if attributes:
         filter_query = 'OR'.join([f'{filter}[Filter]' for filter in research_filters])
         search_term = f"{search_term} AND {filter_query}"
+
+    if open_access:
+        search_term = f"{search_term} AND open_access[filter]"
+
+    if medline:
+        search_term = f"{search_term} AND preprint[filter]"
 
     return search_term
 
@@ -61,14 +69,6 @@ def get_pubmed(search_term, max_results):
         })
 
     return results
-
-
-def extract_free():
-    pass
-
-
-def extract_limited():
-    pass
 
 
 def process_pubmed(articles):
