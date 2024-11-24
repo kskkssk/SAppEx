@@ -24,7 +24,7 @@ def process_scholar(results):
                     authors_info = authors[0]
                     if authors_info:
                         authors_name = authors_info['name']
-    source = 'google scholar'
+    database = 'Scholar'
 
 
 def get_scholar(query, api_key, start, page_size, as_ylo, as_yhi, as_rr=None, as_sdt=0.5):

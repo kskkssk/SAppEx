@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: ./app/Dockerfile
     ports:
-      - "5000:5000"
+      - "8083:8083"
     depends_on:
       - db
     env_file:

@@ -13,7 +13,7 @@ class Article(db.Model):
     summary = db.Column(db.Text, nullable=True)
     authors = db.Column(db.String(500), nullable=True)
     full_text = db.Column(db.Text, nullable=True)
-    source = db.Column(db.String(100), nullable=False)
+    database = db.Column(db.String(20), nullable=False)
 
 
 class Experiment(db.Model):

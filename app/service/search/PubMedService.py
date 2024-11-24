@@ -56,7 +56,8 @@ def get_pubmed(search_term, max_results):
             "doi": record.get("LID", "N/A").replace("[doi]", "").strip(),
             "abstract": record.get("AB", "N/A"),
             "publication_date": record.get("DP", "N/A"),
-            "text": full_text
+            "text": full_text,
+            "database": 'PMC'
         })
 
     return results
