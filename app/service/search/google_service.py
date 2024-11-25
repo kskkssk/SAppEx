@@ -1,16 +1,17 @@
 from serpapi import GoogleSearch
+import os
 
 
-def get_scholar(query, api_key, start, page_size, as_ylo, as_yhi, as_rr=None, as_sdt=0.5):
+def get_scholar(query, page_size, as_ylo, as_yhi, as_rr=0, as_sdt=0.5):
+    api_key = os.getenv("API_KEY")
     params = {
         "engine": "google_scholar",
         "q": query,
         "api_key": api_key,
-        "start": start,
         "num": page_size,
         "as_yhi": as_yhi,  # to
         "as_ylo": as_ylo,  # from
-        "ar_rr": as_rr,  # обзорные статьи
+        "ar_rr": as_rr,  # обзорные статьи or 1
         "as_sdt": as_sdt  # статьи и патенты=0.5, статьи=0, патенты=1
     }
 
@@ -20,7 +21,7 @@ def get_scholar(query, api_key, start, page_size, as_ylo, as_yhi, as_rr=None, as
     return organic_results
 
 
-def process_scholar(results,):
+def process_scholar(results):
 
     for article in results:
         text = None

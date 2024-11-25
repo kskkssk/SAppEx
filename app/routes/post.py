@@ -2,6 +2,7 @@ from app.api import app
 from app.service.crud.article_service import ArticleService
 from app.service.crud.query_service import QueryService
 from app.service.search.pubmed_service import get_pubmed
+from app.service.search.google_service import get_scholar
 from fastapi import Form
 
 
@@ -20,6 +21,24 @@ async def add_pubmed(term: str = Form(...), sort: str = Form(...), max_results: 
         database = res["database"]
     new_article = ArticleService.add(term=term, title=title, snippet=snippet, doi=doi, link=link,
                                      summary=summary, authors=authors, full_text=full_text, database=database)
+
+
+@app.post('/add_google')
+async def add_google(term: str = Form(...), as_sdt: float = Form(...), max_results: str = Form(...),
+                     as_rr: int = Form(...), mindate: str = Form(...), maxdate: str = Form(...)):
+    results = get_scholar(query=term, page_size=max_results, as_ylo=mindate, as_yhi=maxdate, as_rr=as_rr, as_sdt=as_sdt)
+    for res in results:
+        title = res["title"],
+        authors = res["authors"],
+        source = res["source"],
+        doi = res["doi"],
+        abstract = res["abstract"],
+        publication_date = res["publication_date"],
+        full_text = res["text"],
+        database = res["database"]
+    new_article = ArticleService.add(term=term, title=title, snippet=snippet, doi=doi, link=link,
+                                     summary=summary, authors=authors, full_text=full_text, database=database)
+
 
 
 @app.route('/results')

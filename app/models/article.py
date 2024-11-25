@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, String, ForeignKey
+from sqlalchemy import Integer, String, ForeignKey, Date
 from app.database import Base
 from sqlalchemy.orm import relationship, mapped_column
 
@@ -13,7 +13,10 @@ class Article(Base):
     doi = mapped_column(String, unique=True, nullable=True)
     link = mapped_column(String, unique=True, nullable=True)
     summary = mapped_column(String, nullable=True)
+    source = mapped_column(String, nullable=True)
     authors = mapped_column(String, nullable=True)
+    abstract = mapped_column(String, nullable=True)
+    publication_date = mapped_column(Date, nullable=True)
     full_text = mapped_column(String, nullable=True)
     database = mapped_column(String, nullable=False)
     query_term = mapped_column(Integer, ForeignKey('querys.term'))
