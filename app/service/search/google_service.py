@@ -1,8 +1,29 @@
 from serpapi import GoogleSearch
 
 
-def process_scholar(results):
+def get_scholar(query, api_key, start, page_size, as_ylo, as_yhi, as_rr=None, as_sdt=0.5):
+    params = {
+        "engine": "google_scholar",
+        "q": query,
+        "api_key": api_key,
+        "start": start,
+        "num": page_size,
+        "as_yhi": as_yhi,  # to
+        "as_ylo": as_ylo,  # from
+        "ar_rr": as_rr,  # обзорные статьи
+        "as_sdt": as_sdt  # статьи и патенты=0.5, статьи=0, патенты=1
+    }
+
+    search = GoogleSearch(params)
+    results = search.get_dict()
+    organic_results = results["organic_results"]
+    return organic_results
+
+
+def process_scholar(results,):
+
     for article in results:
+        text = None
         doi = None
         title = None
         link = None
@@ -25,22 +46,4 @@ def process_scholar(results):
                     if authors_info:
                         authors_name = authors_info['name']
     database = 'Scholar'
-
-
-def get_scholar(query, api_key, start, page_size, as_ylo, as_yhi, as_rr=None, as_sdt=0.5):
-    params = {
-        "engine": "google_scholar",
-        "q": query,
-        "api_key": api_key,
-        "start": start,
-        "num": page_size,
-        "as_yhi": as_yhi,  # to
-        "as_ylo": as_ylo,  # from
-        "ar_rr": as_rr,  # обзорные статьи
-        "as_sdt": as_sdt  # статьи и патенты=0.5, статьи=0, патенты=1
-    }
-
-    search = GoogleSearch(params)
-    results = search.get_dict()
-    organic_results = results["organic_results"]
-    return organic_results
+    return title, snippet, doi, link, summary, authors_name, text, database
