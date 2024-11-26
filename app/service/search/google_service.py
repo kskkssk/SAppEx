@@ -1,4 +1,4 @@
-from serpapi import GoogleSearch
+import serpapi
 import os
 
 
@@ -11,20 +11,13 @@ def get_scholar(query, page_size, as_ylo, as_yhi, as_rr=0, as_sdt=0.5):
         "num": page_size,
         "as_yhi": as_yhi,  # to
         "as_ylo": as_ylo,  # from
-        "ar_rr": as_rr,  # обзорные статьи or 1
+        "ar_rr": as_rr,  # обзорные статьи = 1
         "as_sdt": as_sdt  # статьи и патенты=0.5, статьи=0, патенты=1
     }
-
-    search = GoogleSearch(params)
-    results = search.get_dict()
-    organic_results = results["organic_results"]
-    return organic_results
-
-
-def process_scholar(results):
-
-    for article in results:
-        text = None
+    client = serpapi.Client(api_key=api_key)
+    organic_results = client.search(params)['organic_results']
+    results = []
+    for article in organic_results:
         doi = None
         title = None
         link = None
@@ -46,5 +39,13 @@ def process_scholar(results):
                     authors_info = authors[0]
                     if authors_info:
                         authors_name = authors_info['name']
-    database = 'Scholar'
-    return title, snippet, doi, link, summary, authors_name, text, database
+        results.append({
+            "title": title,
+            "snippet": snippet,
+            "doi": doi,
+            "link": link,
+            "summary": summary,
+            "authors": authors_name,
+            "database": 'Scholar'
+        })
+    return results

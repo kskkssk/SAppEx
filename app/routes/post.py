@@ -1,70 +1,53 @@
-from app.api import app
+from app.api import app, redis_instance
 from app.service.crud.article_service import ArticleService
-from app.service.crud.query_service import QueryService
 from app.service.search.pubmed_service import get_pubmed
 from app.service.search.google_service import get_scholar
-from fastapi import Form
+from fastapi import Form, Depends
+from app.database import get_db
+from sqlalchemy.orm import Session
 
 
-@app.post('/add_pubmed')
+def get_article_service(db: Session = Depends(get_db)):
+    return ArticleService(db)
+
+
+@app.post('/pubmed')
 async def add_pubmed(term: str = Form(...), sort: str = Form(...), max_results: str = Form(...),
                      field: str = Form(...), n: int = Form(...), mindate: str = Form(...), maxdate: str = Form(...)):
+    redis_instance.set('query', term)
+    redis_instance.set('length_pubmed', n)
     results = get_pubmed(term, sort=sort, max_results=max_results, field=field, n=n, mindate=mindate, maxdate=maxdate)
+    article_service = get_article_service()
     for res in results:
-        title = res["title"],
-        authors = res["authors"],
-        source = res["source"],
-        doi = res["doi"],
-        abstract = res["abstract"],
-        publication_date = res["publication_date"],
-        full_text = res["text"],
+        title = res["title"]
+        authors = res["authors"]
+        source = res["source"]
+        doi = res["doi"]
+        abstract = res["abstract"]
+        publication_date = res["publication_date"]
+        text = res["text"]
         database = res["database"]
-    new_article = ArticleService.add(term=term, title=title, snippet=snippet, doi=doi, link=link,
-                                     summary=summary, authors=authors, full_text=full_text, database=database)
+        article_service.add(term=term, title=title, authors=authors, source=source, doi=doi,
+                            abstract=abstract, publication_date=publication_date, full_text=text, database=database)
+    redis_instance.set('length_pubmed', len(results))
+    return None
 
 
-@app.post('/add_google')
+@app.post('/google')
 async def add_google(term: str = Form(...), as_sdt: float = Form(...), max_results: str = Form(...),
                      as_rr: int = Form(...), mindate: str = Form(...), maxdate: str = Form(...)):
+    redis_instance.set('length_google', max_results)
     results = get_scholar(query=term, page_size=max_results, as_ylo=mindate, as_yhi=maxdate, as_rr=as_rr, as_sdt=as_sdt)
+    article_service = get_article_service()
     for res in results:
-        title = res["title"],
-        authors = res["authors"],
-        source = res["source"],
-        doi = res["doi"],
-        abstract = res["abstract"],
-        publication_date = res["publication_date"],
-        full_text = res["text"],
+        title = res["title"]
+        snippet = res["snippet"]
+        doi = res["doi"]
+        link = res["link"]
+        summary = res["summary"]
+        authors = res["authors"]
         database = res["database"]
-    new_article = ArticleService.add(term=term, title=title, snippet=snippet, doi=doi, link=link,
-                                     summary=summary, authors=authors, full_text=full_text, database=database)
-
-
-
-@app.route('/results')
-async def results():
-    query = request.form['query']
-    pages = int(request.form['pages'])
-    from_year = request.form['from']
-    to_year = request.form['to']
-
-    goo_articles = get_scholar(
-        query=query,
-        api_key=os.getenv("API_KEY"),
-        start=0,
-        page_size=pages,
-        as_ylo=from_year,
-        as_yhi=to_year
-    )
-    pub_articles = get_pubmed(
-        query=query,
-        max_results=pages,
-        from_year=from_year,
-        to_year=to_year
-    )
-
-        #redis_instance.set('data', json.dumps(df_dict))
-        #redis_instance.set('query', query)
-        #return render_template('results.html', data=df.head().to_html(index=False, classes='dataframe'), length=length)
-   # else:
-       # return "Ошибка: Поиск не был инициирован."
+        article_service.add(term=term, title=title, snippet=snippet, doi=doi, link=link,
+                            summary=summary, authors=authors, database=database)
+    redis_instance.set('length_google', len(results))
+    return None

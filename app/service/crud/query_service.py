@@ -17,3 +17,10 @@ class QueryService:
             self.session.delete(query)
         else:
             raise ValueError("Query does not exist")
+
+    def get_by_query(self, term):
+        query = self.session.query(Query).filter_by(term=term).first()
+        if not query:
+            raise ValueError("Query does not exist")
+        articles = query.articles
+        return articles

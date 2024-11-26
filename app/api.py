@@ -6,8 +6,15 @@ import redis
 import os
 import uvicorn
 from typing import Any
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 app = FastAPI()
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+templates = Jinja2Templates(directory="templates")
+
 redis_instance = redis.Redis(host='redis', port=6379, db=0)
 
 SECRET_KEY = os.getenv('SECRET_KEY')
