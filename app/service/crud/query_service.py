@@ -1,4 +1,4 @@
-from app.models.query import Query
+from models.query import Query
 
 
 class QueryService:
@@ -18,9 +18,13 @@ class QueryService:
         else:
             raise ValueError("Query does not exist")
 
-    def get_by_query(self, term):
+    def get_articles(self, term):
         query = self.session.query(Query).filter_by(term=term).first()
         if not query:
             raise ValueError("Query does not exist")
         articles = query.articles
         return articles
+
+    def query_list(self):
+        query_list = self.session.query(Query).all()
+        return query_list

@@ -1,5 +1,5 @@
-from app.models.article import Article
-from app.models.query import Query
+from models.article import Article
+from models.query import Query
 
 
 class ArticleService:
