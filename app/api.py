@@ -2,20 +2,19 @@ from fastapi import Depends, FastAPI, Request, Response, Form, HTTPException, st
 from fastapi.middleware.cors import CORSMiddleware
 from database import init_db, get_db
 from sqlalchemy.orm import Session
-from fastapi.responses import HTMLResponse
-import redis
-import os
-import pandas as pd
-import json
-import tempfile
-import uvicorn
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from service.search.pubmed_service import get_pubmed
 from service.search.google_service import get_scholar
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from service.crud.query_service import QueryService
 from service.crud.article_service import ArticleService
+import redis
+import os
+from io import BytesIO
+import pandas as pd
+import json
+import uvicorn
 
 app = FastAPI()
 
@@ -96,17 +95,15 @@ async def download():
     if "data" not in redis_instance:
         return "Ошибка: Данные не найдены. Пожалуйста, выполните поиск"
     df_dict = json.loads(redis_instance.get('data'))
-    df = pd.DataFrame.from_dict(df_dict, orient='index')
+    df = pd.DataFrame.from_dict(df_dict)
     query = redis_instance.get("query")
     if query:
         query = query.decode('utf-8')
-    with tempfile.NamedTemporaryFile(delete=False, mode='w', newline='', suffix='.csv') as temp_file:
-        df.to_csv(temp_file, index=False)
-        temp_file_path = temp_file.name
-    try:
-        return FileResponse(temp_file_path, filename=f'{query}.csv')
-    finally:
-        os.remove(temp_file_path)
+    file_content = df.to_csv(index=False, sep=';').encode('utf-8')
+    file_like = BytesIO(file_content)
+    file_like.seek(0)
+    headers = {'Content-Disposition': f'attachment; filename="{query}.csv"'}
+    return StreamingResponse(file_like, media_type='application/octet-stream', headers=headers)
 
 
 @app.get('/query_list')
