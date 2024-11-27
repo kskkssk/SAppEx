@@ -16,7 +16,7 @@ class Article(Base):
     source = mapped_column(String, nullable=True)
     authors = mapped_column(String, nullable=True)
     abstract = mapped_column(String, nullable=True)
-    publication_date = mapped_column(Date, nullable=True)
+    publication_date = mapped_column(String, nullable=True)
     full_text = mapped_column(String, nullable=True)
     database = mapped_column(String, nullable=False)
     query_id = mapped_column(Integer, ForeignKey('querys.id'))

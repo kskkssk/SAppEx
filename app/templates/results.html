@@ -4,11 +4,6 @@
     <h1>Результаты поиска</h1>
     <p>Всего найдено статей Google Scholar: {{ data['length_google'].decode() }}</p>
     <p>Всего найдено статей Pubmed: {{ data['length_pubmed'].decode() }}</p>
-    <div>
-      <table class="dataframe">
-        {{ data['df'] | safe }}
-      </table>
-    </div>
     <a href="{{ url_for('download') }}">
       <button type="button" class="btn btn-outline-danger">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-cloud-download" viewBox="0 0 16 16">
@@ -18,6 +13,11 @@
         Сохранить всю таблицу в формате .csv
       </button>
     </a>
+    <div>
+      <table class="dataframe">
+        {{ data['df'] | safe }}
+      </table>
+    </div>
     <br>
     <a href="{{ url_for('index') }}">
       <button type="button" class="btn btn-outline-danger">
@@ -30,7 +30,7 @@
 
 <style>
     table.dataframe {
-    width: 70%;
+    width: 60%;
     border-collapse: collapse;
     margin-top: 20px;
     margin-bottom: 20px;

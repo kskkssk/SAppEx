@@ -9,6 +9,7 @@ import time
 def get_pubmed(search_term, sort="relevance", max_results=None, field=None, n=None, mindate=None, maxdate=None):
     Entrez.email = "kudasheva0.kudasheva@gmail.com"
     term = f"{search_term}[{field}]" if field else search_term
+
     search_handle = Entrez.esearch(db="pubmed", term=term, retmax=max_results, reldate=n, sort=sort, datetype='pdat',
                                    mindate=mindate, maxdate=maxdate)
     search_results = Entrez.read(search_handle)
@@ -50,25 +51,25 @@ def get_pubmed(search_term, sort="relevance", max_results=None, field=None, n=No
             except IncompleteRead:
                 time.sleep(1)
                 continue
+        if pmcid is not None:
+            try:
+                reader = PdfReader(f"{pmcid}.pdf")
+                text = ""
+                for page in reader.pages:
+                    text += page.extract_text() + "\n"
+                    text = text.replace('\n', '').replace('\xa0', ' ')
+            except Exception as e:
+                print(f"Ошибка при чтении PDF: {e}")
+                continue
 
-        try:
-            reader = PdfReader(f"{pmcid}.pdf")
-            text = ""
-            for page in reader.pages:
-                text += page.extract_text() + "\n"
-                text = text.replace('\n', '').replace('\xa0', ' ')
-        except Exception as e:
-            print(f"Ошибка при чтении PDF: {e}")
-            continue
-
-        results.append({
-          "title": record.get("TI", "N/A"),
-          "authors": record.get("AU", "N/A"),
-          "source": record.get("SO", "N/A"),
-          "doi": record.get("LID", "N/A").replace("[doi]", "").strip(),
-          "abstract": record.get("AB", "N/A"),
-          "publication_date": record.get("DP", "N/A"),
-          "text": text,
-          "database": 'PMC'
-        })
+            results.append({
+              "title": record.get("TI", "N/A"),
+              "authors": record.get("AU", "N/A"),
+              "source": record.get("SO", "N/A"),
+              "doi": record.get("LID", "N/A").replace("[doi]", "").strip(),
+              "abstract": record.get("AB", "N/A"),
+              "publication_date": record.get("DP", "N/A"),
+              "text": text,
+              "database": 'PMC'
+            })
     return results

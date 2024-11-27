@@ -122,16 +122,13 @@ async def search_articles(term: str = Form(None),
                           sort: str = Form(None),
                           max_results: int = Form(None),
                           field: str = Form(None),
-                          n: int = Form(None),
+                          n: str = Form(None),
                           mindate: str = Form(None),
                           maxdate: str = Form(None),
                           as_sdt: float = Form(None),
                           as_rr: int = Form(None),
                           article_service: ArticleService = Depends(get_article_service)):
     redis_instance.set('query', term)
-
-    if n is not None:
-        n = int(n)
 
     pubmed_results = get_pubmed(term, sort=sort, max_results=max_results, field=field, n=n, mindate=mindate,
                                 maxdate=maxdate)

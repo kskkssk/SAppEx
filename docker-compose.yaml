@@ -17,7 +17,6 @@ services:
     volumes:
       - ./app:/app
     command: bash -c "alembic revision --autogenerate; alembic upgrade head && uvicorn api:app --host 0.0.0.0 --port 8080 --reload"
-    #command: bash -c "alembic downgrade base; alembic upgrade head"
     networks:
       - backend
 
