@@ -1,12 +1,12 @@
 {% extends "layout.html" %}
 
 {% block content %}
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/df_style.css') }}">
-    <h3>Результаты поиска</h3>
-    <p>Всего найдено статей: {{ length }}</p>
+    <h1>Результаты поиска</h1>
+    <p>Всего найдено статей Google Scholar: {{ data['length_google'].decode() }}</p>
+    <p>Всего найдено статей Pubmed: {{ data['length_pubmed'].decode() }}</p>
     <div>
       <table class="dataframe">
-        {{ data | safe }}
+        {{ data['df'] | safe }}
       </table>
     </div>
     <a href="{{ url_for('download') }}">
@@ -29,6 +29,31 @@
     </a>
 
 <style>
+    table.dataframe {
+    width: 70%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+table.dataframe th, table.dataframe td {
+    padding: 12px;
+    text-align: left;
+    border: 1px solid #ddd;
+}
+
+table.dataframe th {
+    background-color: #FF746C;
+    font-weight: bold;
+}
+
+table.dataframe tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+table.dataframe tr:hover {
+    background-color: #f1f1f1;
+}
   .btn.btn-outline-danger {
     margin-top: 15px;
   }
@@ -53,5 +78,6 @@
     background-color: #f68282;
     color: white;
   }
+
 </style>
 {% endblock %}

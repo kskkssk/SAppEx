@@ -1,17 +1,20 @@
 from models.article import Article
 from models.query import Query
+from service.crud.query_service import QueryService
 
 
 class ArticleService:
     def __init__(self, session):
         self.session = session
+        self.query_session = QueryService(session)
 
-    def add(self, term: str, title: str, snippet: str, doi: str, link: str, summary: str, source: str, authors: str,
-            abstract: str, publication_date: str, full_text: str, database: str):
+    def add(self, term, title, snippet, doi, link, summary, source, authors, abstract, publication_date, full_text,
+            database):
+        self.query_session.add(term)
         query = self.session.query(Query).filter_by(term=term).first()
         if not query:
             raise ValueError("Query with such term does not exist")
-        article = self.session.query(Article).filter_by(title=title, query_term=term).first()
+        article = self.session.query(Article).filter_by(title=title).first()
         if not article:
             new_article = Article(
                 title=title,
@@ -28,6 +31,7 @@ class ArticleService:
                 query=query
             )
             self.session.add(new_article)
+            self.session.commit()
 
     def get_by_title(self, title: str):
         article = self.session.query(Article).filter_by(title=title).first()

@@ -13,3 +13,7 @@ SQLAlchemy==2.0.0
 uvicorn==0.32.1
 psycopg2-binary
 jinja2
+lxml[html_clean]
+lxml_html_clean
+python-multipart
+alembic

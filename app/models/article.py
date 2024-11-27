@@ -19,5 +19,5 @@ class Article(Base):
     publication_date = mapped_column(Date, nullable=True)
     full_text = mapped_column(String, nullable=True)
     database = mapped_column(String, nullable=False)
-    query_term = mapped_column(Integer, ForeignKey('querys.term'))
-    query = relationship("Query", back_populates="article")
+    query_id = mapped_column(Integer, ForeignKey('querys.id'))
+    query = relationship("Query", back_populates="articles")

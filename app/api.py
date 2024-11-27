@@ -13,14 +13,11 @@ from fastapi.responses import FileResponse
 from service.search.pubmed_service import get_pubmed
 from service.search.google_service import get_scholar
 from fastapi.responses import RedirectResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from service.crud.query_service import QueryService
 from service.crud.article_service import ArticleService
 
 app = FastAPI()
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 templates = Jinja2Templates(directory="templates")
 
@@ -47,12 +44,12 @@ app.add_middleware(
 )
 
 
-def get_guery_service(db: Session = Depends(get_db)):
-    return QueryService(db)
-
-
-def get_article_service(db: Session = Depends(get_db)):
+def get_article_service(db: Session = Depends(get_db)) -> ArticleService:
     return ArticleService(db)
+
+
+def get_guery_service(db: Session = Depends(get_db)) -> QueryService:
+    return QueryService(db)
 
 
 @app.get('/', response_class=HTMLResponse)
@@ -63,11 +60,10 @@ async def index(request: Request):
 
 
 @app.get('/results')
-async def results(request: Request):
+async def results(request: Request, query_service: QueryService = Depends(get_guery_service)):
     query = redis_instance.get("query")
     length_google = redis_instance.get("length_google")
     length_pubmed = redis_instance.get("length_pubmed")
-    query_service = get_guery_service()
     articles = query_service.get_articles(query)
     # чтобы сделать датафрейм из SqlAlchemy , надо сделать словарь
     articles_dict = [{
@@ -114,8 +110,7 @@ async def download():
 
 
 @app.get('/query_list')
-async def query_list(request: Request):
-    query_service = get_guery_service()
+async def query_list(request: Request, query_service: QueryService = Depends(get_guery_service)):
     querys = query_service.query_list()
     if not querys:
         return None
@@ -126,34 +121,40 @@ async def query_list(request: Request):
 
 
 @app.post('/search')
-async def search_articles(term: str = Form(...),
-                          sort: str = Form(...),
-                          max_results: int = Form(...),
-                          field: str = Form(...),
-                          n: int = Form(...),
-                          mindate: str = Form(...),
-                          maxdate: str = Form(...),
-                          as_sdt: float = Form(...),
-                          as_rr: int = Form(...)):
+async def search_articles(term: str = Form(None),
+                          sort: str = Form(None),
+                          max_results: int = Form(None),
+                          field: str = Form(None),
+                          n: int = Form(None),
+                          mindate: str = Form(None),
+                          maxdate: str = Form(None),
+                          as_sdt: float = Form(None),
+                          as_rr: int = Form(None),
+                          article_service: ArticleService = Depends(get_article_service)):
     redis_instance.set('query', term)
+
+    if n is not None:
+        n = int(n)
 
     pubmed_results = get_pubmed(term, sort=sort, max_results=max_results, field=field, n=n, mindate=mindate,
                                 maxdate=maxdate)
-    article_service = get_article_service()
+
     for res in pubmed_results:
         article_service.add(
-            term=term, title=res["title"], authors=res["authors"], source=res["source"],
-            doi=res["doi"], abstract=res["abstract"], publication_date=res["publication_date"],
+            term=term, title=res["title"], snippet=None, link=None, authors=res["authors"], summary=None,
+            source=res["source"], doi=res["doi"], abstract=res["abstract"], publication_date=res["publication_date"],
             full_text=res["text"], database=res["database"]
         )
     redis_instance.set('length_pubmed', len(pubmed_results))
 
     google_results = get_scholar(query=term, page_size=max_results, as_ylo=mindate, as_yhi=maxdate, as_rr=as_rr,
                                  as_sdt=as_sdt)
+
     for res in google_results:
         article_service.add(
-            term=term, title=res["title"], snippet=res["snippet"], doi=res["doi"],
-            link=res["link"], summary=res["summary"], authors=res["authors"], database=res["database"]
+            term=term, title=res["title"], snippet=res["snippet"], doi=res["doi"], link=res["link"],
+            summary=res["summary"], source=None, authors=res["authors"], abstract=None, publication_date=None,
+            full_text=None, database=res["database"]
         )
     redis_instance.set('length_google', len(google_results))
 
@@ -161,9 +162,8 @@ async def search_articles(term: str = Form(...),
 
 
 @app.delete('/query')
-def delete_query(query: str):
+def delete_query(query: str, query_service: QueryService = Depends(get_guery_service)):
     try:
-        query_service = get_guery_service()
         query_service.delete(query)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -175,4 +175,4 @@ def startup():
 
 
 if __name__ == '__main__':
-    uvicorn.run(app, host='0.0.0.0', port=8083)
+    uvicorn.run(app, host='0.0.0.0', port=8080)
