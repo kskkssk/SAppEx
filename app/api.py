@@ -140,8 +140,8 @@ async def search_articles(term: str = Form(None),
             full_text=res["text"], database=res["database"]
         )
     redis_instance.set('length_pubmed', len(pubmed_results))
-
-    google_results = get_scholar(query=term, page_size=max_results, as_ylo=mindate, as_yhi=maxdate, as_rr=as_rr,
+    
+    google_results = get_scholar(query=term, page_size=max_results, as_ylo=mindate[:4], as_yhi=maxdate[:4], as_rr=as_rr,
                                  as_sdt=as_sdt)
 
     for res in google_results:
