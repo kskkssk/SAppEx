@@ -14,8 +14,12 @@ class ArticleService:
         query = self.session.query(Query).filter_by(term=term).first()
         if not query:
             raise ValueError("Query with such term does not exist")
-        article = self.session.query(Article).filter_by(title=title).first()
-        if not article:
+        existing_article = self.session.query(Article).filter(
+            Article.title.ilike(f"%{title}%"),  # Нечувствительное к регистру частичное сопоставление
+            Article.authors == authors,
+            Article.doi == doi if doi else True
+        ).first()
+        if not existing_article:
             new_article = Article(
                 title=title,
                 snippet=snippet,

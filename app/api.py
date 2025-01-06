@@ -9,6 +9,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from service.crud.query_service import QueryService
 from service.crud.article_service import ArticleService
+from service.crud.experiment_service import ExperimentService
 import redis
 import os
 from io import BytesIO
@@ -47,8 +48,12 @@ def get_article_service(db: Session = Depends(get_db)) -> ArticleService:
     return ArticleService(db)
 
 
-def get_guery_service(db: Session = Depends(get_db)) -> QueryService:
+def get_query_service(db: Session = Depends(get_db)) -> QueryService:
     return QueryService(db)
+
+
+def get_experiment_service(db: Session = Depends(get_db)) -> ExperimentService:
+    return ExperimentService(db)
 
 
 @app.get('/', response_class=HTMLResponse)
@@ -59,32 +64,55 @@ async def index(request: Request):
 
 
 @app.get('/results')
-async def results(request: Request, query_service: QueryService = Depends(get_guery_service)):
+async def results(request: Request, query_service: QueryService = Depends(get_query_service),
+                  experiment_service: ExperimentService = Depends(get_experiment_service)):
     query = redis_instance.get("query")
     length_google = redis_instance.get("length_google")
     length_pubmed = redis_instance.get("length_pubmed")
     articles = query_service.get_articles(query)
-    # чтобы сделать датафрейм из SqlAlchemy , надо сделать словарь
-    articles_dict = [{
-        "title": article.title,
-        "snippet": article.snippet,
-        "doi": article.doi,
-        "link": article.link,
-        "summary": article.summary,
-        "source": article.source,
-        "authors": article.authors,
-        "abstract": article.abstract,
-        "publication_date": article.publication_date,
-        "full_text": article.full_text,
-        "database": article.database
-    } for article in articles]
-    df = pd.DataFrame(articles_dict)
-    df_dict = df.to_dict()
-    redis_instance.set('data', json.dumps(df_dict))
-    data = {"length_google": length_google,
-            "length_pubmed": length_pubmed,
-            "df": df.head().to_html(index=False, classes='dataframe')
+
+    articles_dict = []
+    for article in articles:
+        experiments = experiment_service.get_by_article(article.title)
+
+        article_dict = {
+            "title": article.title,
+            "snippet": article.snippet,
+            "doi": article.doi,
+            "link": article.link,
+            "summary": article.summary,
+            "source": article.source,
+            "authors": article.authors,
+            "abstract": article.abstract,
+            "publication_date": article.publication_date,
+            "full_text": article.full_text,
+            "database": article.database,
+            "experiments": []  # Добавляем список экспериментов
+        }
+
+        # Добавляем данные об экспериментах
+        for exp in experiments:
+            experiment_dict = {
+                "objects": exp.objects,
+                "methods": exp.methods,
+                "parameters": exp.parameters,
+                "results": exp.results,
+                "notes": exp.notes
             }
+            article_dict["experiments"].append(experiment_dict)
+
+        articles_dict.append(article_dict)
+
+    df = pd.DataFrame(articles_dict)
+
+    redis_instance.set('data', json.dumps(df.to_dict()))
+
+    data = {
+        "length_google": length_google,
+        "length_pubmed": length_pubmed,
+        "df": df.head().to_html(index=False, classes='dataframe')  # Отображаем только первые 5 строк
+    }
+
     return templates.TemplateResponse(
         'results.html', {"request": request, "data": data}
     )
@@ -107,7 +135,7 @@ async def download():
 
 
 @app.get('/query_list')
-async def query_list(request: Request, query_service: QueryService = Depends(get_guery_service)):
+async def query_list(request: Request, query_service: QueryService = Depends(get_query_service)):
     querys = query_service.query_list()
     if not querys:
         return None
@@ -127,18 +155,23 @@ async def search_articles(term: str = Form(None),
                           maxdate: str = Form(None),
                           as_sdt: float = Form(None),
                           as_rr: int = Form(None),
-                          article_service: ArticleService = Depends(get_article_service)):
+                          article_service: ArticleService = Depends(get_article_service),
+                          experiment_service: ExperimentService = Depends(get_experiment_service)):
     redis_instance.set('query', term)
 
     pubmed_results = get_pubmed(term, sort=sort, max_results=max_results, field=field, n=n, mindate=mindate,
                                 maxdate=maxdate)
-
     for res in pubmed_results:
         article_service.add(
             term=term, title=res["title"], snippet=None, link=None, authors=res["authors"], summary=None,
             source=res["source"], doi=res["doi"], abstract=res["abstract"], publication_date=res["publication_date"],
             full_text=res["text"], database=res["database"]
         )
+        for exp in res["experimental_data"]:
+            experiment_service.add(
+                title=res["title"], objects=exp["objects"], methods=exp["methods"], parameters=exp["parameters"],
+                results=exp["results"], notes=exp["notes"])
+
     redis_instance.set('length_pubmed', len(pubmed_results))
     
     google_results = get_scholar(query=term, page_size=max_results, as_ylo=mindate[:4], as_yhi=maxdate[:4], as_rr=as_rr,
@@ -156,7 +189,7 @@ async def search_articles(term: str = Form(None),
 
 
 @app.delete('/query')
-def delete_query(query: str, query_service: QueryService = Depends(get_guery_service)):
+def delete_query(query: str, query_service: QueryService = Depends(get_query_service)):
     try:
         query_service.delete(query)
     except ValueError as e:

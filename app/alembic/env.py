@@ -17,6 +17,7 @@ if config.config_file_name is not None:
 from database import Base
 from models.query import Query
 from models.article import Article
+from models.experiment import Experiment
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

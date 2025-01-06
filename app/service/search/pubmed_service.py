@@ -3,11 +3,73 @@ from http.client import IncompleteRead
 from requests_html import HTMLSession
 from Bio import Entrez, Medline
 from pypdf import PdfReader
+from openai import OpenAI
+import pandas as pd
 import time
+import json
+import os
+
+
+def send_request(chunk):
+    #api_key = os.getenv("OPENAI_API_KEY")
+    api_key = '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'
+
+    client = OpenAI(
+        api_key=api_key,
+    )
+    first_response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages = [
+            {
+                "role": "system",
+                "content": "Ты — помощник, который анализирует тексты и отвечает 'Да' или 'Нет' на вопрос, есть ли в тексте условия для экспериментов."
+            },
+            {
+                "role": "user",
+                "content":
+                    "Проанализируй текст и ответь 'Да', если в тексте есть условия для экспериментов (например, описание объектов, методов, параметров или результатов исследований). "
+                    "Если таких условий нет, ответь 'Нет'. "
+                    "Ответь только 'Да' или 'Нет' без дополнительных пояснений.\n"
+                    f"Текст для анализа:\n{chunk}"
+            }
+        ]
+    )
+    first_response = first_response.choices[0].message.content
+    if first_response.lower().strip() == 'да':
+        second_response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Вы - полезный помощник, который анализирует тексты и структурирует данные в формате, совместимом с JSON."
+                },
+                {
+                    "role": "user",
+                    "content":
+                        "Проанализируй текст и создай список словарей. Каждый словарь соответствует одному объекту исследования. "
+                        "Формат каждого словаря должен быть следующим:\n"
+                        "{\n"
+                        "  \"objects\": \"название объекта\",\n"
+                        "  \"methods\": [\"метод_1\", \"метод_2\", ...],\n"
+                        "  \"parameters\": [\"параметр_1\", \"параметр_2\", ...],\n"
+                        "  \"results\": \"описание результатов\",\n"
+                        "  \"notes\": \"дополнительные примечания\"\n"
+                        "}\n"
+                        "Если какой-то элемент отсутствует в тексте, оставь его пустым (например, пустой список или пустую строку).\n"
+                        "Убедись, что все строки заключены в двойные кавычки (\"), чтобы данные были совместимы с форматом JSON.\n"
+                        "Предоставь только список словарей, без дополнительных комментариев или пояснений.\n"
+                        f"Текст для анализа:\n{chunk}"
+                }
+            ]
+        )
+        result = json.loads(second_response.choices[0].message.content.replace("'", '"').replace('\'', '\"').replace('\\', '\\\\'))
+        return result
+    else:
+        return None
 
 
 def get_pubmed(search_term, sort="relevance", max_results=None, field=None, n=None, mindate=None, maxdate=None):
-    Entrez.email = "kudasheva0.kudasheva@gmail.com"
+    Entrez.email = 'kudasheva0.kudasheva@gmail.com'
     term = f"{search_term}[{field}]" if field else search_term
 
     search_handle = Entrez.esearch(db="pubmed", term=term, retmax=max_results, reldate=n, sort=sort, datetype='pdat',
@@ -15,6 +77,7 @@ def get_pubmed(search_term, sort="relevance", max_results=None, field=None, n=No
     search_results = Entrez.read(search_handle)
     search_handle.close()
     results = []
+    responses = []
     article_ids = search_results["IdList"]
 
     if not article_ids:
@@ -39,7 +102,7 @@ def get_pubmed(search_term, sort="relevance", max_results=None, field=None, n=No
                     url = f"https://pmc.ncbi.nlm.nih.gov/articles/{pmcid}/" + pdf_url
                     r = session.get(url, stream=True)
                     with open(pmcid + '.pdf', 'wb') as f:
-                        for chunk in r.iter_content(chunk_size=1024):
+                        for chunk in r.iter_content(chunk_size=4000):
                             if chunk:
                                 f.write(chunk)
                 else:
@@ -52,16 +115,22 @@ def get_pubmed(search_term, sort="relevance", max_results=None, field=None, n=No
                 time.sleep(1)
                 continue
         if pmcid is not None:
-            try:
-                reader = PdfReader(f"{pmcid}.pdf")
-                text = ""
-                for page in reader.pages:
-                    text += page.extract_text() + "\n"
-                    text = text.replace('\n', '').replace('\xa0', ' ')
-            except Exception as e:
-                print(f"Ошибка при чтении PDF: {e}")
-                continue
-
+            #try:
+            reader = PdfReader(f"{pmcid}.pdf")
+            num_pages = len(reader.pages)
+            chunk_size = 4000
+            text = ""
+            for page_num in range(num_pages):
+                text += reader.pages[page_num].extract_text() + "\n"
+                text = text.replace('\n', '').replace('\xa0', ' ')
+                chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
+                for idx, chunk in enumerate(chunks):
+                    response = send_request(chunk)
+                    responses.append(response)
+            #except Exception as e:
+            #    print(f"Ошибка при чтении PDF: {e}")
+            #    continue
+            print(responses)
             results.append({
               "title": record.get("TI", "N/A"),
               "authors": record.get("AU", "N/A"),
@@ -70,6 +139,7 @@ def get_pubmed(search_term, sort="relevance", max_results=None, field=None, n=No
               "abstract": record.get("AB", "N/A"),
               "publication_date": record.get("DP", "N/A"),
               "text": text,
-              "database": 'PMC'
+              "database": 'PMC',
+              "experimental_data": responses
             })
     return results

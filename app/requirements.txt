@@ -17,3 +17,4 @@ lxml[html_clean]
 lxml_html_clean
 python-multipart
 alembic
+openai
