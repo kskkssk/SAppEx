@@ -62,7 +62,12 @@ def send_request(chunk):
                 }
             ]
         )
-        result = json.loads(second_response.choices[0].message.content.replace("'", '"').replace('\'', '\"').replace('\\', '\\\\'))
+        try:
+            result = json.loads(second_response.choices[0].message.content.replace("'", '"').replace('\'', '\"').replace('\\', '\\\\'))   
+        except json.JSONDecodeError as e:
+            print(f"Failed to decode JSON: {e}")
+            print("Response content:", content)
+            raise
         return result
     else:
         return None
