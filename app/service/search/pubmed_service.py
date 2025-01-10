@@ -1,4 +1,4 @@
-*from requests.exceptions import ConnectionError
+from requests.exceptions import ConnectionError
 from http.client import IncompleteRead
 from requests_html import HTMLSession
 from Bio import Entrez, Medline
