@@ -62,8 +62,14 @@ def send_request(chunk):
                 }
             ]
         )
+        content = second_response.choices[0].message.content
+        print("Response content:", content)  # Логируем содержимое ответа
+        
+        if not content:
+            raise ValueError("Empty response from API")
+        
         try:
-            result = json.loads(second_response.choices[0].message.content.replace("'", '"').replace('\'', '\"').replace('\\', '\\\\'))   
+            result = json.loads(content.replace("'", '"').replace('\'', '\"').replace('\\', '\\\\'))
         except json.JSONDecodeError as e:
             print(f"Failed to decode JSON: {e}")
             print("Response content:", content)
