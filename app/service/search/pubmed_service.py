@@ -69,7 +69,7 @@ def send_request(chunk):
             raise ValueError("Empty response from API")
         
         try:
-            result = json.loads(content.replace("'", '"').replace('\'', '\"').replace('\\', '\\\\'))
+            result = json.loads(content.replace("'", '"').replace('\'', '\"').replace('\\', '\\\\').strip("'<>() "))
         except json.JSONDecodeError as e:
             print(f"Failed to decode JSON: {e}")
             print("Response content:", content)
