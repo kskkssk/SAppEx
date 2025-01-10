@@ -64,7 +64,7 @@ def send_request(chunk):
         )
         content = second_response.choices[0].message.content
         print("Response content:", content)  # Логируем содержимое ответа
-        
+        print(type(content))
         if not content:
             raise ValueError("Empty response from API")
         
