@@ -71,7 +71,7 @@ def send_request(chunk):
             except json.JSONDecodeError as e:
                 print(f"Failed to decode JSON: {e}")
                 print("Response content:", content)
-                raise
+                return None 
             return result
         else:
             return None
