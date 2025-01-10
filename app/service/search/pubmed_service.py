@@ -1,4 +1,4 @@
-from requests.exceptions import ConnectionError
+*from requests.exceptions import ConnectionError
 from http.client import IncompleteRead
 from requests_html import HTMLSession
 from Bio import Entrez, Medline
@@ -65,18 +65,16 @@ def send_request(chunk):
         content = second_response.choices[0].message.content
         print("Response content:", content)  # Логируем содержимое ответа
         print(type(content))
-        if not content:
-            raise ValueError("Empty response from API")
-        
-        try:
-            result = json.loads(content.replace("'", '"').replace('\'', '\"').replace('\\', '\\\\').strip("'<>() "))
-        except json.JSONDecodeError as e:
-            print(f"Failed to decode JSON: {e}")
-            print("Response content:", content)
-            raise
-        return result
-    else:
-        return None
+        if content:  
+            try:
+                result = json.loads(content.replace("'", '"').replace('\'', '\"').replace('\\', '\\\\').strip("'<>() "))
+            except json.JSONDecodeError as e:
+                print(f"Failed to decode JSON: {e}")
+                print("Response content:", content)
+                raise
+            return result
+        else:
+            return None
 
 
 def get_pubmed(search_term, sort="relevance", max_results=None, field=None, n=None, mindate=None, maxdate=None):
