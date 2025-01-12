@@ -135,7 +135,7 @@ def get_pubmed(search_term, sort="relevance", max_results=None, field=None, n=No
                 chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
                 for idx, chunk in enumerate(chunks):
                     response = send_request(chunk)
-                    responses.append(response)
+                    responses.extend(response)
             #except Exception as e:
             #    print(f"Ошибка при чтении PDF: {e}")
             #    continue
