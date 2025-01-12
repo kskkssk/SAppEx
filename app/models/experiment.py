@@ -7,7 +7,7 @@ class Experiment(Base):
     __tablename__ = 'experiments'
 
     id = mapped_column(Integer, primary_key=True)
-    objects = mapped_column(String, unique=True, nullable=True)
+    objects = mapped_column(String, nullable=True)
     methods = mapped_column(JSON, nullable=True)
     parameters = mapped_column(JSON, nullable=True)
     results = mapped_column(Text, nullable=True)
