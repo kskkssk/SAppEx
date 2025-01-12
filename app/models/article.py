@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, String, ForeignKey, Date
+from sqlalchemy import Integer, String, ForeignKey, Date, JSON
 from database import Base
 from sqlalchemy.orm import relationship, mapped_column
 
@@ -13,7 +13,7 @@ class Article(Base):
     link = mapped_column(String, unique=True, nullable=True)
     summary = mapped_column(String, nullable=True)
     source = mapped_column(String, nullable=True)
-    authors = mapped_column(String, nullable=True)
+    authors = mapped_column(JSON, nullable=True)
     abstract = mapped_column(String, nullable=True)
     publication_date = mapped_column(String, nullable=True)
     full_text = mapped_column(String, nullable=True)
