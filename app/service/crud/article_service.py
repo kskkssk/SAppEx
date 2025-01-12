@@ -16,7 +16,6 @@ class ArticleService:
             raise ValueError("Query with such term does not exist")
         existing_article = self.session.query(Article).filter(
             Article.title.ilike(f"%{title}%"),  # Нечувствительное к регистру частичное сопоставление
-            Article.authors == authors,
             Article.doi == doi if doi else True
         ).first()
         if not existing_article:
