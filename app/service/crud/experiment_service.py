@@ -5,7 +5,6 @@ class ExperimentService:
     def __init__(self, session):
         self.session = session
 
-    @staticmethod
     def add(self, title, objects, methods, parameters, results, notes):
         article = self.session.query(Article).filter_by(title=title).first()
         if not article:
