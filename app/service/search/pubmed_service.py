@@ -98,8 +98,7 @@ def get_pubmed(search_term, sort="relevance", max_results=None, field=None, n=No
     for record in records:
         pmcid = record.get("PMC")
         session = HTMLSession()
-        headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-                                 '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'}
+        headers = {'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'}
         base_url = 'https://pmc.ncbi.nlm.nih.gov/articles/'
         text = None
         if pmcid:
@@ -135,7 +134,8 @@ def get_pubmed(search_term, sort="relevance", max_results=None, field=None, n=No
                 chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
                 for idx, chunk in enumerate(chunks):
                     response = send_request(chunk)
-                    responses.extend(response)
+                    if response:
+                        responses.extend(response)
             #except Exception as e:
             #    print(f"Ошибка при чтении PDF: {e}")
             #    continue
