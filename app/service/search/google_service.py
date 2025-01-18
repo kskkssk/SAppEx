@@ -45,7 +45,6 @@ def get_scholar(query, page_size, as_ylo, as_yhi, as_rr=0, as_sdt=0.5):
             "doi": doi,
             "link": link,
             "summary": summary,
-            "authors": authors_name,
             "database": 'Scholar'
         })
     return results
