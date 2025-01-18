@@ -6,24 +6,13 @@
         <div class="form-group">
             <label for="term">Запрос</label>
             <input type="text" id="term" name="term" required>
-
-            <label for="sort">Сортировать поиск по:</label>
-            <select id="sort" name="sort">
-                <option value="relevance">Релевантность</option>
-                <option value="date">Дата</option>
-                <option value="author">Автор</option>
-                <option value="journal">Название журнала</option>
-            </select>
-
+            
             <label for="max_results">Количество результатов в каждой из систем:</label>
             <input type="number" id="max_results" name="max_results" min="1" required>
 
             <label for="field"> Поле для поиска:</label>
             <input type="text" id="field" name="field">
-            <small>Введите поле для поиска, например, <strong>title</strong>, <strong>authors</strong>, или <strong>abstract</strong>.</small>
-
-            <label for="n">Период публикации (в днях):</label>
-            <input type="text" id="n" name="n">
+            <small>Введите поле для поиска, например, <strong>title</strong> или <strong>abstract</strong>.</small>
 
             <label>Даты публикации:</label>
             <label for="mindate">От:</label>
