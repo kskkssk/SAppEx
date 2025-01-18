@@ -9,7 +9,7 @@ import time
 import json
 import os
 
-
+'''
 def send_request(chunk):
     #api_key = os.getenv("OPENAI_API_KEY")
     api_key = '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'
@@ -75,7 +75,7 @@ def send_request(chunk):
             return result
         else:
             return None
-
+'''
 
 def get_pubmed(search_term, sort="relevance", max_results=None, field=None, mindate=None, maxdate=None):
     Entrez.email = 'kudasheva0.kudasheva@gmail.com'
@@ -131,24 +131,25 @@ def get_pubmed(search_term, sort="relevance", max_results=None, field=None, mind
             for page_num in range(num_pages):
                 text += reader.pages[page_num].extract_text() + "\n"
                 text = text.replace('\n', '').replace('\xa0', ' ')
+                '''
                 chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
                 for idx, chunk in enumerate(chunks):
                     response = send_request(chunk)
                     if response:
                         responses.extend(response)
+                '''
             #except Exception as e:
             #    print(f"Ошибка при чтении PDF: {e}")
             #    continue
             print(responses)
             results.append({
               "title": record.get("TI", "N/A"),
-              "authors": record.get("AU", "N/A"),
               "source": record.get("SO", "N/A"),
               "doi": record.get("LID", "N/A").replace("[doi]", "").strip(),
               "abstract": record.get("AB", "N/A"),
               "publication_date": record.get("DP", "N/A"),
               "text": text,
               "database": 'PMC',
-              "experimental_data": responses
+              #"experimental_data": responses
             })
     return results
