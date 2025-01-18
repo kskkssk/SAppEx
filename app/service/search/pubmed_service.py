@@ -141,7 +141,6 @@ def get_pubmed(search_term, sort="relevance", max_results=None, field=None, mind
             #except Exception as e:
             #    print(f"Ошибка при чтении PDF: {e}")
             #    continue
-            print(responses)
             results.append({
               "title": record.get("TI", "N/A"),
               "source": record.get("SO", "N/A"),
@@ -150,6 +149,6 @@ def get_pubmed(search_term, sort="relevance", max_results=None, field=None, mind
               "publication_date": record.get("DP", "N/A"),
               "text": text,
               "database": 'PMC',
-              #"experimental_data": responses
+              #"experimental_data": ''
             })
     return results
