@@ -77,11 +77,11 @@ def send_request(chunk):
             return None
 
 
-def get_pubmed(search_term, sort="relevance", max_results=None, field=None, n=None, mindate=None, maxdate=None):
+def get_pubmed(search_term, sort="relevance", max_results=None, field=None, mindate=None, maxdate=None):
     Entrez.email = 'kudasheva0.kudasheva@gmail.com'
     term = f"{search_term}[{field}]" if field else search_term
 
-    search_handle = Entrez.esearch(db="pubmed", term=term, retmax=max_results, reldate=n, sort=sort, datetype='pdat',
+    search_handle = Entrez.esearch(db="pubmed", term=term, retmax=max_results, sort=sort, datetype='pdat',
                                    mindate=mindate, maxdate=maxdate)
     search_results = Entrez.read(search_handle)
     search_handle.close()
