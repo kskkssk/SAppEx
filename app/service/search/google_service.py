@@ -2,7 +2,7 @@ import serpapi
 import os
 
 
-def get_scholar(query, page_size, as_ylo, as_yhi, as_rr=0, as_sdt=0.5):
+def get_scholar(query, page_size, as_ylo, as_yhi, as_rr=0, as_sdt=0):
     api_key = os.getenv("SERP_API")
     params = {
         "engine": "google_scholar",
