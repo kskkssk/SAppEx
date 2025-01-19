@@ -77,7 +77,6 @@ def get_scholar(query, page_size, as_ylo, as_yhi, as_rr=0, as_sdt=0):
             results.append({
                 "title": title,
                 "doi": doi,
-                "link": link,
                 "text": text,
                 "summary": summary,
                 "database": "Scholar",
