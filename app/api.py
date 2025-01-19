@@ -77,19 +77,15 @@ async def results(request: Request, query_service: QueryService = Depends(get_qu
 
         article_dict = {
             "title": article.title,
-            "snippet": article.snippet,
             "doi": article.doi,
-            "link": article.link,
             "summary": article.summary,
-            "source": article.source,
-            "authors": article.authors,
             "abstract": article.abstract,
             "publication_date": article.publication_date,
             "full_text": article.full_text,
             "database": article.database,
-            "experiments": []  # Добавляем список экспериментов
+            #"experiments": []  # Добавляем список экспериментов
         }
-
+        '''
         # Добавляем данные об экспериментах
         for exp in experiments:
             experiment_dict = {
@@ -100,7 +96,7 @@ async def results(request: Request, query_service: QueryService = Depends(get_qu
                 "notes": exp.notes
             }
             article_dict["experiments"].append(experiment_dict)
-
+        '''
         articles_dict.append(article_dict)
 
     df = pd.DataFrame(articles_dict)
@@ -147,10 +143,8 @@ async def query_list(request: Request, query_service: QueryService = Depends(get
 
 @app.post('/search')
 async def search_articles(term: str = Form(None),
-                          sort: str = Form(None),
                           max_results: int = Form(None),
                           field: str = Form(None),
-                          n: str = Form(None),
                           mindate: str = Form(None),
                           maxdate: str = Form(None),
                           as_sdt: float = Form(None),
@@ -159,19 +153,20 @@ async def search_articles(term: str = Form(None),
                           experiment_service: ExperimentService = Depends(get_experiment_service)):
     redis_instance.set('query', term)
 
-    pubmed_results = get_pubmed(term, sort=sort, max_results=max_results, field=field, n=n, mindate=mindate,
+    pubmed_results = get_pubmed(term, max_results=max_results, field=field, mindate=mindate,
                                 maxdate=maxdate)
     for res in pubmed_results:
         article_service.add(
-            term=term, title=res["title"], snippet=None, link=None, authors=res["authors"], summary=None,
-            source=res["source"], doi=res["doi"], abstract=res["abstract"], publication_date=res["publication_date"],
+            term=term, title=res["title"], summary=res["summary"], doi=res["doi"], 
+            abstract=res["abstract"], publication_date=res["publication_date"],
             full_text=res["text"], database=res["database"]
         )
+        '''
         for exp in res["experimental_data"]:
             experiment_service.add(
                 title=res["title"], objects=exp["objects"], methods=exp["methods"], parameters=exp["parameters"],
                 results=exp["results"], notes=exp["notes"])
-
+        '''
     redis_instance.set('length_pubmed', len(pubmed_results))
     
     google_results = get_scholar(query=term, page_size=max_results, as_ylo=mindate[:4], as_yhi=maxdate[:4], as_rr=as_rr,
@@ -179,9 +174,9 @@ async def search_articles(term: str = Form(None),
 
     for res in google_results:
         article_service.add(
-            term=term, title=res["title"], snippet=res["snippet"], doi=res["doi"], link=res["link"],
-            summary=res["summary"], source=None, authors=res["authors"], abstract=None, publication_date=None,
-            full_text=None, database=res["database"]
+            term=term, title=res["title"], summary=res["summary"],  doi=res["doi"], 
+            abstract=None, publication_date=res["publication_date"],
+            full_text=res["text"], database=res["database"]
         )
     redis_instance.set('length_google', len(google_results))
 
