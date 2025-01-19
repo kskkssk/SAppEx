@@ -8,8 +8,7 @@ class ArticleService:
         self.session = session
         self.query_session = QueryService(session)
 
-    def add(self, term, title, snippet, doi, link, summary, source, authors, abstract, publication_date, full_text,
-            database):
+    def add(self, term, title, doi, summary, abstract, publication_date, full_text, database):
         self.query_session.add(term)
         query = self.session.query(Query).filter_by(term=term).first()
         if not query:
@@ -21,12 +20,8 @@ class ArticleService:
         if not existing_article:
             new_article = Article(
                 title=title,
-                snippet=snippet,
                 doi=doi,
-                link=link,
                 summary=summary,
-                source=source,
-                authors=authors,
                 abstract=abstract,
                 publication_date=publication_date,
                 full_text=full_text,
