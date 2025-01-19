@@ -49,7 +49,9 @@ def get_scholar(query, page_size, as_ylo, as_yhi, as_rr=0, as_sdt=0):
         link = article.get('link')
         publication_info = article.get('publication_info', {})
         summary = publication_info.get('summary')
-
+        
+        publication_date = re.search(r'\b\d{4}\b', summary)
+        
         if link and '10.' in link:
             doi = '/'.join(link[link.find('10.'):].split('/')[:2])
 
@@ -78,7 +80,8 @@ def get_scholar(query, page_size, as_ylo, as_yhi, as_rr=0, as_sdt=0):
                 "link": link,
                 "text": text,
                 "summary": summary,
-                "database": 'Scholar'
+                "database": "Scholar",
+                "publication_date": publication_date
             })
 
     return results
