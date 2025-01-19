@@ -47,10 +47,8 @@ def get_scholar(query, page_size, as_ylo, as_yhi, as_rr=0, as_sdt=0):
         doi = None
         title = article.get('title')
         link = article.get('link')
-        snippet = article.get('snippet')
         publication_info = article.get('publication_info', {})
         summary = publication_info.get('summary')
-        authors_name = None
 
         if link and '10.' in link:
             doi = '/'.join(link[link.find('10.'):].split('/')[:2])
@@ -79,6 +77,7 @@ def get_scholar(query, page_size, as_ylo, as_yhi, as_rr=0, as_sdt=0):
                 "doi": doi,
                 "link": link,
                 "text": text,
+                "summary": summary,
                 "database": 'Scholar'
             })
 
