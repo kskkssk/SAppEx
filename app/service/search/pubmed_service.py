@@ -143,7 +143,7 @@ def get_pubmed(search_term, sort="relevance", max_results=None, field=None, mind
             #    continue
             results.append({
               "title": record.get("TI", "N/A"),
-              "source": record.get("SO", "N/A"),
+              "summary": record.get("SO", "N/A"),
               "doi": record.get("LID", "N/A").replace("[doi]", "").strip(),
               "abstract": record.get("AB", "N/A"),
               "publication_date": record.get("DP", "N/A"),
