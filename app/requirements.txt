@@ -18,3 +18,4 @@ lxml_html_clean
 python-multipart
 alembic
 openai
+scidownl
