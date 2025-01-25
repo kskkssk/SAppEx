@@ -101,6 +101,8 @@ def get_pubmed(search_term, sort="relevance", max_results=None, field=None, mind
         headers = {'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'}
         base_url = 'https://pmc.ncbi.nlm.nih.gov/articles/'
         text = None
+        if not os.path.exists("data_out"):
+            os.makedirs("data_out")
         if pmcid:
             try:
                 r = session.get(base_url + pmcid + '/', headers=headers, timeout=5)
@@ -109,7 +111,10 @@ def get_pubmed(search_term, sort="relevance", max_results=None, field=None, mind
                     pdf_url = link_element.attrs['href']
                     url = f"https://pmc.ncbi.nlm.nih.gov/articles/{pmcid}/" + pdf_url
                     r = session.get(url, stream=True)
-                    with open(pmcid + '.pdf', 'wb') as f:
+            
+                    pdf_path = os.path.join("data_out", f"{pmcid}.pdf")
+            
+                    with open(pdf_path, 'wb') as f:
                         for chunk in r.iter_content(chunk_size=4000):
                             if chunk:
                                 f.write(chunk)
