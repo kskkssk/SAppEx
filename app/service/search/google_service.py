@@ -1,10 +1,11 @@
 import subprocess
 import serpapi
+from pypdf import PdfReader
 import os
 import re
 
 
-def download_article(command):
+def download_article(command, output_file):
     try:
         result = subprocess.run(command, shell=True, check=True)
         return os.path.exists(output_file)
@@ -61,9 +62,9 @@ def get_scholar(query, page_size, as_ylo, as_yhi, as_rr=0, as_sdt=0):
             output_file = os.path.join(base_dir, f"{sanitized_title}.pdf")
             os.makedirs(base_dir, exist_ok=True) 
 
-            if download_article(f'scidownl download --title "{title}" --out "{output_file}"'):
+            if download_article(f'scidownl download --title "{title}" --out "{output_file}"', output_file):
                 print(f"Статья успешно скачана по заголовку: {output_file}")
-            elif doi and download_article(f'scidownl download --doi "{doi}" --out "{output_file}"'):
+            elif doi and download_article(f'scidownl download --doi "{doi}" --out "{output_file}"', output_file):
                 print(f"Статья успешно скачана по DOI: {output_file}")
             else:
                 print("Ошибка: статья не найдена ни по заголовку, ни по DOI.")
@@ -71,8 +72,13 @@ def get_scholar(query, page_size, as_ylo, as_yhi, as_rr=0, as_sdt=0):
 
             text = None
             if os.path.exists(output_file):
-                with open(output_file, "r", encoding="utf-8") as f:
-                    text = f.read()
+                reader = PdfReader(output_file)
+                num_pages = len(reader.pages)
+                chunk_size = 4000
+                text = ""
+                for page_num in range(num_pages):
+                    text += reader.pages[page_num].extract_text() + "\n"
+                    text = text.replace('\n', '').replace('\xa0', ' ')
 
             results.append({
                 "title": title,
