@@ -78,10 +78,7 @@ async def results(request: Request, query_service: QueryService = Depends(get_qu
         article_dict = {
             "title": article.title,
             "doi": article.doi,
-            "summary": article.summary,
-            "abstract": article.abstract,
             "publication_date": article.publication_date,
-            "full_text": article.full_text,
             "database": article.database,
             #"experiments": []  # Добавляем список экспериментов
         }
