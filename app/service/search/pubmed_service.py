@@ -130,7 +130,7 @@ def get_pubmed(search_term, sort="relevance", max_results=None, field=None, mind
             text = ""
             for page_num in range(num_pages):
                 text += reader.pages[page_num].extract_text() + "\n"
-                text = text.replace('\n', '').replace('\xa0', ' ')
+                text = text.replace('\\n', '\n').replace('\xa0', ' ')
                 '''
                 chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
                 for idx, chunk in enumerate(chunks):
