@@ -79,7 +79,8 @@ def get_scholar(query, page_size, as_ylo, as_yhi, as_rr=0, as_sdt=0):
                 text = ""
                 for page_num in range(num_pages):
                     text += reader.pages[page_num].extract_text() + "\n"
-                    text = text.replace('\\n', '\n').replace('\xa0', ' ')
+                    text = text.replace('\xa0', ' ')
+                    text = re.sub(r"\\n|\n|\r\n", " ", text)
 
             results.append({
                 "title": title,
