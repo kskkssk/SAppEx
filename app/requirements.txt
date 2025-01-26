@@ -19,3 +19,4 @@ python-multipart
 alembic
 openai
 scidownl
+PyMuPDF
