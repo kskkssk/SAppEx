@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, String, ForeignKey, Date, JSON
+from sqlalchemy import Integer, String, ForeignKey, Date, JSON, Text
 from database import Base
 from sqlalchemy.orm import relationship, mapped_column
 
@@ -10,11 +10,10 @@ class Article(Base):
     title = mapped_column(String, unique=True, nullable=True)
     doi = mapped_column(String, nullable=True)
     summary = mapped_column(String, nullable=True)
-    abstract = mapped_column(String, nullable=True)
     publication_date = mapped_column(String, nullable=True)
-    full_text = mapped_column(String, nullable=True)
+    full_text = mapped_column(Text, nullable=True)
     database = mapped_column(String, nullable=False)
     query_id = mapped_column(Integer, ForeignKey('querys.id'))
     query = relationship("Query", back_populates="articles")
-    exp_data = relationship("Experiment", back_populates="article", cascade="all, delete-orphan")
+    sec_data = relationship("Section", back_populates="article", cascade="all, delete-orphan")
 

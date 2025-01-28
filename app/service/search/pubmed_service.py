@@ -1,5 +1,6 @@
 from requests.exceptions import ConnectionError
 from http.client import IncompleteRead
+from extract_service import Extraction, preprocess
 from requests_html import HTMLSession
 from Bio import Entrez, Medline
 from pypdf import PdfReader
@@ -8,6 +9,7 @@ import pandas as pd
 import time
 import json
 import os
+import re
 
 '''
 def send_request(chunk):
@@ -129,14 +131,22 @@ def get_pubmed(search_term, sort="relevance", max_results=None, field=None, mind
                 continue
         if pmcid is not None:
             #try:
+            references = None
+            keywords = None
             reader = PdfReader(f"{pmcid}.pdf")
             num_pages = len(reader.pages)
-            chunk_size = 4000
             text = ""
             for page_num in range(num_pages):
                 text += reader.pages[page_num].extract_text() + "\n"
                 text = text.replace('\xa0', ' ')
-                text = re.sub(r"\\n|\n|\r\n", " ", text)
+            match = re.search(r"References\s*(1\..*)", text, re.DOTALL | re.IGNORECASE)
+            if match:
+                references = text[match.start():]
+                text_to_process = text[:match.start()]
+                if text_to_process:
+                    strings = preprocess(text_to_process)
+                    extraction = Extraction()
+                    _, keywords = extraction.get_text(text_to_process, strings)
                 '''
                 chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
                 for idx, chunk in enumerate(chunks):
@@ -155,6 +165,8 @@ def get_pubmed(search_term, sort="relevance", max_results=None, field=None, mind
               "publication_date": record.get("DP", "N/A"),
               "text": text,
               "database": 'PMC',
+              "references": references,
+              "keywords": keywords
               #"experimental_data": ''
             })
     return results

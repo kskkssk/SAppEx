@@ -3,7 +3,7 @@ import serpapi
 from pypdf import PdfReader
 import os
 import re
-
+from extract_service import Extraction, preprocess
 
 def download_article(command, output_file):
     try:
@@ -72,15 +72,25 @@ def get_scholar(query, page_size, as_ylo, as_yhi, as_rr=0, as_sdt=0):
                 continue 
 
             text = None
+            references = None
+            abstract = None
+            keywords = None
+            text_to_process = None
             if os.path.exists(output_file):
                 reader = PdfReader(output_file)
                 num_pages = len(reader.pages)
-                chunk_size = 4000
                 text = ""
                 for page_num in range(num_pages):
                     text += reader.pages[page_num].extract_text() + "\n"
                     text = text.replace('\xa0', ' ')
-                    text = re.sub(r"\\n|\n|\r\n", " ", text)
+                match = re.search(r"References\s*(1\..*)", text, re.DOTALL | re.IGNORECASE)
+                if match:
+                    references = text[match.start():]
+                    text_to_process = text[:match.start()]
+                    if text_to_process:
+                        strings = preprocess(text_to_process)
+                        extraction = Extraction()
+                        abstract, keywords = extraction.get_text(text_to_process, strings)
 
             results.append({
                 "title": title,
@@ -88,8 +98,10 @@ def get_scholar(query, page_size, as_ylo, as_yhi, as_rr=0, as_sdt=0):
                 "text": text,
                 "summary": summary,
                 "database": "Scholar",
-                "publication_date": publication_date
+                "publication_date": publication_date,
+                "references": references,
+                "abstract": abstract,
+                "keywords": keywords
             })
 
     return results
- 

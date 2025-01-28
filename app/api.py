@@ -1,5 +1,6 @@
 from fastapi import Depends, FastAPI, Request, Response, Form, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+
 from database import init_db, get_db
 from sqlalchemy.orm import Session
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -9,7 +10,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from service.crud.query_service import QueryService
 from service.crud.article_service import ArticleService
-from service.crud.experiment_service import ExperimentService
+from service.crud.sector_service import SectorService
 import redis
 import os
 from io import BytesIO
@@ -52,8 +53,8 @@ def get_query_service(db: Session = Depends(get_db)) -> QueryService:
     return QueryService(db)
 
 
-def get_experiment_service(db: Session = Depends(get_db)) -> ExperimentService:
-    return ExperimentService(db)
+def get_sector_service(db: Session = Depends(get_db)) -> SectorService:
+    return SectorService(db)
 
 
 @app.get('/', response_class=HTMLResponse)
@@ -64,8 +65,9 @@ async def index(request: Request):
 
 
 @app.get('/results')
-async def results(request: Request, query_service: QueryService = Depends(get_query_service),
-                  experiment_service: ExperimentService = Depends(get_experiment_service)):
+async def results(request: Request,
+                  query_service: QueryService = Depends(get_query_service),
+                  sector_service: SectorService=Depends(get_sector_service)):
     query = redis_instance.get("query")
     length_google = redis_instance.get("length_google")
     length_pubmed = redis_instance.get("length_pubmed")
@@ -73,14 +75,14 @@ async def results(request: Request, query_service: QueryService = Depends(get_qu
 
     articles_dict = []
     for article in articles:
-        experiments = experiment_service.get_by_article(article.title)
+        sectors = sector_service.get_by_article(article.title)
 
         article_dict = {
             "title": article.title,
             "doi": article.doi,
             "publication_date": article.publication_date,
             "database": article.database,
-            #"experiments": []  # Добавляем список экспериментов
+            "sectors": sectors  # Добавляем список экспериментов
         }
         '''
         # Добавляем данные об экспериментах
@@ -147,23 +149,19 @@ async def search_articles(term: str = Form(None),
                           as_sdt: float = Form(None),
                           as_rr: int = Form(None),
                           article_service: ArticleService = Depends(get_article_service),
-                          experiment_service: ExperimentService = Depends(get_experiment_service)):
+                          sector_service: SectorService=Depends(get_sector_service)):
     redis_instance.set('query', term)
 
     pubmed_results = get_pubmed(term, max_results=max_results, field=field, mindate=mindate,
                                 maxdate=maxdate)
     for res in pubmed_results:
         article_service.add(
-            term=term, title=res["title"], summary=res["summary"], doi=res["doi"], 
-            abstract=res["abstract"], publication_date=res["publication_date"],
-            full_text=res["text"], database=res["database"]
-        )
-        '''
-        for exp in res["experimental_data"]:
-            experiment_service.add(
-                title=res["title"], objects=exp["objects"], methods=exp["methods"], parameters=exp["parameters"],
-                results=exp["results"], notes=exp["notes"])
-        '''
+            term=term, title=res["title"], summary=res["summary"], doi=res["doi"],
+            publication_date=res["publication_date"], full_text=res["text"], database=res["database"])
+        sector_service.add(
+            title=res["title"], abstract=res["abstract"], keywords=res["keywords"], introduction=None,
+            methods=None, results=None, discussion=None, conclusion=None, references=res["references"])
+
     redis_instance.set('length_pubmed', len(pubmed_results))
     
     google_results = get_scholar(query=term, page_size=max_results, as_ylo=mindate[:4], as_yhi=maxdate[:4], as_rr=as_rr,
@@ -172,9 +170,12 @@ async def search_articles(term: str = Form(None),
     for res in google_results:
         article_service.add(
             term=term, title=res["title"], summary=res["summary"],  doi=res["doi"], 
-            abstract=None, publication_date=res["publication_date"],
-            full_text=res["text"], database=res["database"]
+            publication_date=res["publication_date"], full_text=res["text"], database=res["database"]
         )
+        sector_service.add(
+            title=res["title"], abstract=res["abstract"], keywords=res["keywords"], introduction=None,
+            methods=None, results=None, discussion=None, conclusion=None, references=res["references"])
+
     redis_instance.set('length_google', len(google_results))
 
     return RedirectResponse(url='/results', status_code=303)
