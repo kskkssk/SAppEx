@@ -1,11 +1,11 @@
 from fastapi import Depends, FastAPI, Request, Response, Form, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-
 from database import init_db, get_db
 from sqlalchemy.orm import Session
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse
 from service.search.pubmed_service import get_pubmed
 from service.search.google_service import get_scholar
+from service.process.excel import process_excel
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from service.crud.query_service import QueryService
@@ -67,45 +67,52 @@ async def index(request: Request):
 @app.get('/results')
 async def results(request: Request,
                   query_service: QueryService = Depends(get_query_service),
-                  sector_service: SectorService=Depends(get_sector_service)):
+                  sector_service: SectorService = Depends(get_sector_service)):
     query = redis_instance.get("query")
+    if query:
+        query = query.decode('utf-8')
+    print(f"QUERY {query}")
     length_google = redis_instance.get("length_google")
     length_pubmed = redis_instance.get("length_pubmed")
     articles = query_service.get_articles(query)
+    print(f"ARTICLES {articles}")
 
     articles_dict = []
     for article in articles:
+        print(f"SECTORS for {article.title}")
         sectors = sector_service.get_by_article(article.title)
-
-        article_dict = {
-            "title": article.title,
-            "doi": article.doi,
-            "publication_date": article.publication_date,
-            "database": article.database,
-            "sectors": sectors  # Добавляем список экспериментов
-        }
-        '''
-        # Добавляем данные об экспериментах
-        for exp in experiments:
-            experiment_dict = {
-                "objects": exp.objects,
-                "methods": exp.methods,
-                "parameters": exp.parameters,
-                "results": exp.results,
-                "notes": exp.notes
+        print(f"SECTORS {sectors}")
+        if sectors:
+            sector = sectors[0]
+            article_dict = {
+                "title": article.title,
+                "doi": article.doi,
+                "publication_date": article.publication_date,
+                "database": article.database,
+                "abstract": sector.abstract,
+                "keywords": sector.keywords,
+                "references": sector.references
             }
-            article_dict["experiments"].append(experiment_dict)
-        '''
-        articles_dict.append(article_dict)
+            articles_dict.append(article_dict)
+        else:
+            article_dict = {
+                "title": article.title,
+                "doi": article.doi,
+                "publication_date": article.publication_date,
+                "database": article.database,
+                "abstract": None,
+                "keywords": None,
+                "references": None
+            }
+            articles_dict.append(article_dict)
 
     df = pd.DataFrame(articles_dict)
-
     redis_instance.set('data', json.dumps(df.to_dict()))
 
     data = {
         "length_google": length_google,
         "length_pubmed": length_pubmed,
-        "df": df.head().to_html(index=False, classes='dataframe')  # Отображаем только первые 5 строк
+        #"df": df.head().to_html(index=False, classes='dataframe')
     }
 
     return templates.TemplateResponse(
@@ -122,11 +129,20 @@ async def download():
     query = redis_instance.get("query")
     if query:
         query = query.decode('utf-8')
-    file_content = df.to_csv(index=False, sep=';').encode('utf-8')
-    file_like = BytesIO(file_content)
-    file_like.seek(0)
-    headers = {'Content-Disposition': f'attachment; filename="{query}.csv"'}
-    return StreamingResponse(file_like, media_type='application/octet-stream', headers=headers)
+    else:
+        query = "data"
+    filename = f"{query}.xlsx"
+    process_excel(query=query, df=df)
+    return FileResponse(filename, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        filename=filename)
+'''
+#байтовая последоватекльность. обработаем df 
+file_content = df.to_csv(index=False, sep=';').encode('utf-8')
+file_like = BytesIO(file_content)
+file_like.seek(0)
+headers = {'Content-Disposition': f'attachment; filename="{query}.csv"'}
+return StreamingResponse(file_like, media_type='application/octet-stream', headers=headers)
+'''
 
 
 @app.get('/query_list')
@@ -150,6 +166,7 @@ async def search_articles(term: str = Form(None),
                           as_rr: int = Form(None),
                           article_service: ArticleService = Depends(get_article_service),
                           sector_service: SectorService=Depends(get_sector_service)):
+    term = term.strip()
     redis_instance.set('query', term)
 
     pubmed_results = get_pubmed(term, max_results=max_results, field=field, mindate=mindate,
@@ -170,8 +187,7 @@ async def search_articles(term: str = Form(None),
     for res in google_results:
         article_service.add(
             term=term, title=res["title"], summary=res["summary"],  doi=res["doi"], 
-            publication_date=res["publication_date"], full_text=res["text"], database=res["database"]
-        )
+            publication_date=res["publication_date"], full_text=res["text"], database=res["database"])
         sector_service.add(
             title=res["title"], abstract=res["abstract"], keywords=res["keywords"], introduction=None,
             methods=None, results=None, discussion=None, conclusion=None, references=res["references"])

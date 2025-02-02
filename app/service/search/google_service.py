@@ -4,13 +4,28 @@ from pypdf import PdfReader
 import os
 import re
 from extract_service import Extraction, preprocess
+from requests.exceptions import RequestException
 
 def download_article(command, output_file):
     try:
-        result = subprocess.run(command, shell=True, check=True)
-        return os.path.exists(output_file)
+        subprocess.run(command, shell=True, check=True, timeout=30)
+
+        if os.path.exists(output_file):
+            return True
+        else:
+            print(f"Ошибка: файл не был создан: {output_file}")
+            return False
+    except subprocess.TimeoutExpired:
+        print(f"Тайм-аут при выполнении команды: {command}")
+        return False
     except subprocess.CalledProcessError as e:
         print(f"Ошибка при выполнении команды: {e}")
+        return False
+    except RequestException as e:
+        print(f"Сетевая ошибка: {e}")
+        return False
+    except Exception as e:
+        print(f"Неизвестная ошибка: {e}")
         return False
 
 
@@ -61,15 +76,14 @@ def get_scholar(query, page_size, as_ylo, as_yhi, as_rr=0, as_sdt=0):
             sanitized_title = sanitize_filename(title)           
             base_dir = os.path.abspath("/papers") 
             output_file = os.path.join(base_dir, f"{sanitized_title}.pdf")
-            os.makedirs(base_dir, exist_ok=True) 
-
+            os.makedirs(base_dir, exist_ok=True)
             if download_article(f'scidownl download --title "{title}" --out "{output_file}"', output_file):
                 print(f"Статья успешно скачана по заголовку: {output_file}")
             elif doi and download_article(f'scidownl download --doi "{doi}" --out "{output_file}"', output_file):
                 print(f"Статья успешно скачана по DOI: {output_file}")
             else:
                 print("Ошибка: статья не найдена ни по заголовку, ни по DOI.")
-                continue 
+                continue
 
             text = None
             references = None

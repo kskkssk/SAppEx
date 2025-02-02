@@ -13,11 +13,6 @@
         Сохранить всю таблицу в формате .csv
       </button>
     </a>
-    <div>
-      <table class="dataframe">
-        {{ data['df'] | safe }}
-      </table>
-    </div>
     <br>
     <a href="{{ url_for('index') }}">
       <button type="button" class="btn btn-outline-danger">
