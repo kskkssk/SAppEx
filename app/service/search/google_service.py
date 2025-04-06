@@ -2,13 +2,17 @@ import subprocess
 import serpapi
 from pypdf import PdfReader
 import os
+import time
 import re
-from extract_service import Extraction, preprocess
+from collections import Counter
+from service.search.extract_service import *
 from requests.exceptions import RequestException
+from service.search.extract_service import authors_count
+
 
 def download_article(command, output_file):
     try:
-        subprocess.run(command, shell=True, check=True, timeout=30)
+        subprocess.run(command, shell=True, check=True, timeout=120)
 
         if os.path.exists(output_file):
             return True
@@ -29,93 +33,112 @@ def download_article(command, output_file):
         return False
 
 
-def sanitize_filename(title):
-    sanitized = re.sub(r'[<>:"/\\|?*]', '_', title)
-    sanitized = sanitized.strip()[:100] 
-    return sanitized
-
-
-def get_scholar(query, page_size, as_ylo, as_yhi, as_rr=0, as_sdt=0):
+def get_scholar(query, method_list, max_results, as_ylo, as_yhi, as_rr=0, as_sdt=0):
     api_key = os.getenv("SERP_API")
     if not api_key:
         raise ValueError("API ключ для SERP API не найден. Убедитесь, что переменная окружения SERP_API установлена.")
 
-    params = {
-        "engine": "google_scholar",
-        "q": query,
-        "api_key": api_key,
-        "num": page_size,
-        "as_yhi": as_yhi,  # to
-        "as_ylo": as_ylo,  # from
-        "ar_rr": as_rr,  # обзорные статьи = 1
-        "as_sdt": as_sdt  # статьи=0, патенты=1
-    }
+    info = []
+    page_size = 20
+    num_queries = (max_results + page_size - 1) // page_size  # округляем вверх
 
-    try:
-        client = serpapi.Client(api_key=api_key)
-        organic_results = client.search(params)['organic_results']
-    except Exception as e:
-        print(f"Ошибка при запросе к SERP API: {e}")
-        return []
+    for i in range(num_queries):
+        params = {
+            "engine": "google_scholar",
+            "q": query,
+            "api_key": api_key,
+            "start": i * page_size,
+            "as_yhi": as_yhi,  # to
+            "as_ylo": as_ylo,  # from
+            "as_rr": as_rr,  # обзорные статьи = 1
+            "as_sdt": as_sdt  # статьи=0, патенты=1
+        }
 
-    results = []
-    for article in organic_results:
-        doi = None
-        title = article.get('title')
-        link = article.get('link')
-        publication_info = article.get('publication_info', {})
-        summary = publication_info.get('summary')
-        
-        match = re.search(r'\b\d{4}\b', summary)
-        publication_date = match.group() if match else None 
-        
-        if link and '10.' in link:
-            doi = '/'.join(link[link.find('10.'):].split('/')[:2])
+        try:
+            client = serpapi.Client(api_key=api_key)
+            search_results = client.search(params)
+            organic_results = search_results.get('organic_results', [])
+        except Exception as e:
+            print(f"Ошибка при запросе к SERP API: {e}")
+            continue
 
-        if title:
-            sanitized_title = sanitize_filename(title)           
-            base_dir = os.path.abspath("/papers") 
-            output_file = os.path.join(base_dir, f"{sanitized_title}.pdf")
-            os.makedirs(base_dir, exist_ok=True)
-            if download_article(f'scidownl download --title "{title}" --out "{output_file}"', output_file):
-                print(f"Статья успешно скачана по заголовку: {output_file}")
-            elif doi and download_article(f'scidownl download --doi "{doi}" --out "{output_file}"', output_file):
-                print(f"Статья успешно скачана по DOI: {output_file}")
+        if not organic_results:
+            print(f"Нет результатов для {query} на странице {i + 1}")
+            continue
+
+        for article in organic_results:
+            title = article.get('title')
+            link = article.get('link')
+
+            publication_info = article.get('publication_info', {})
+            summary = publication_info.get('summary')
+
+            pattern = re.compile(r'([A-Z]+(?:\s?[A-Z]*))\s([A-Z][a-z]+)')
+            authors = []
+            matches = pattern.findall(summary)
+            for match in matches:
+                author = f"{match[0]} {match[1]}"  # Объединяем фамилию и инициалы
+                authors.append(author)
+
+            match = re.search(r'\b\d{4}\b', summary)
+            publication_date = match.group() if match else None
+
+            doi = None
+            if link and '10.' in link:
+                doi = '/'.join(link[link.find('10.'):].split('/')[:2])
+
+            text, abstract, keywords, introduction, results, discussion, conclusion, methods, references, ref_count = (None,) * 10
+
+            if title:
+                sanitized_title = sanitize_filename(title)
+                if not os.path.exists("pdf_out"):
+                    os.makedirs("pdf_out")
+                base_dir = os.path.abspath(f"pdf_out/{query}")
+                if not os.path.exists(base_dir):
+                    os.makedirs(base_dir, exist_ok=True)
+                output_file = os.path.join(base_dir, f"{sanitized_title}.pdf")
+
+                downloaded = False
+                if download_article(f'scidownl download --title "{title}" --out "{output_file}"', output_file):
+                    downloaded = True
+                elif doi and download_article(f'scidownl download --doi "{doi}" --out "{output_file}"', output_file):
+                    downloaded = True
+                else:
+                    print(f"Ошибка: статья '{title}' не найдена.")
+
+                if downloaded and os.path.exists(output_file):
+                    sections_text = get_sections(output_file)
+                    text = extract_text_from_pdf(output_file)
+
+                    if sections_text:
+                        introduction = sections_text.get('introduction') or sections_text.get('background')
+                        results = sections_text.get('results') or sections_text.get('results and discussion')
+                        discussion = sections_text.get('discussion')
+                        conclusion = sections_text.get('conclusion') or sections_text.get('conclusions')
+                        methods = sections_text.get('methods') or sections_text.get('materials') or sections_text.get(
+                            'materials and methods')
+                        keywords = sections_text.get('keywords')
+                        references = sections_text.get('references')
+            if method_list is []:
+                method_check = []
             else:
-                print("Ошибка: статья не найдена ни по заголовку, ни по DOI.")
-                continue
-
-            text = None
-            references = None
-            abstract = None
-            keywords = None
-            text_to_process = None
-            if os.path.exists(output_file):
-                reader = PdfReader(output_file)
-                num_pages = len(reader.pages)
-                text = ""
-                for page_num in range(num_pages):
-                    text += reader.pages[page_num].extract_text() + "\n"
-                    text = text.replace('\xa0', ' ')
-                match = re.search(r"References\s*(1\..*)", text, re.DOTALL | re.IGNORECASE)
-                if match:
-                    references = text[match.start():]
-                    text_to_process = text[:match.start()]
-                    if text_to_process:
-                        strings = preprocess(text_to_process)
-                        extraction = Extraction()
-                        abstract, keywords = extraction.get_text(text_to_process, strings)
-
-            results.append({
+                method_check = check_methods(methods, abstract, method_list)
+            info.append({
                 "title": title,
-                "doi": doi,
-                "text": text,
                 "summary": summary,
-                "database": "Scholar",
+                "authors": authors,
+                "doi": doi,
                 "publication_date": publication_date,
-                "references": references,
                 "abstract": abstract,
-                "keywords": keywords
+                "text": text,
+                "database": 'Google Scholar',
+                "references": references,
+                "keywords": keywords,
+                "introduction": introduction,
+                "results": results,
+                "discussion": discussion,
+                "conclusion": conclusion,
+                "methods": methods,
+                "method_check": method_check,
             })
-
-    return results
+    return info

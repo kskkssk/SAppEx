@@ -1,78 +1,222 @@
+from fast_sentence_transformers import FastSentenceTransformer as SentenceTransformer
+from sentence_transformers.util import cos_sim
+from collections import Counter
+import torch
 import re
+import pypdf
+import time
+import os
+import json
+
+DICT_PATH = os.path.dirname(__file__)
+sections = [
+        'abstract', 'keywords', 'introduction', 'background', 'methods', 'materials and methods', 'methodology',
+        'results', 'discussion', 'results and discussion',
+        'conclusion', 'conclusions'
+    ]
 
 
-class Extraction:
-    def __init__(self):
-        # self.model = model
-        self.pattern_abs = re.compile(r"abstract\s*(.*)", re.DOTALL | re.IGNORECASE)
-        self.pattern_key = re.compile(r"keywords\s*(.*)", re.DOTALL | re.IGNORECASE)
-        self.pattern_int = re.compile(r"(?:\d*\s*\.?\s*)?(?:introduction)\b\s*(.*)", re.DOTALL | re.IGNORECASE)
-        self.pattern_back = re.compile(
-            r"^(?!.*\s*abstract\s+)(?:\d*\s*\.?\s*)?(?:background|introduction and background)\b\s*(.*)",
-            re.DOTALL | re.IGNORECASE)
+def sanitize_filename(title):
+    sanitized = re.sub(r'[<>:"/\\|?*]', '_', title)
+    sanitized = sanitized.strip()[:100]
+    return sanitized
 
-    def get_structure(self, strings):
-        begin, middle, end = None, None, None
-        state = None
 
-        for string in strings:
-            match_abs = self.pattern_abs.search(string)
-            match_key = self.pattern_key.search(string)
-            match_int = self.pattern_int.search(string)
-            match_back = self.pattern_back.search(string)
+def load_model(model_name="sentence-transformers/all-MiniLM-L6-v2"):
+    try:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model = SentenceTransformer(model_name, device=device)
+        return model
+    except Exception as e:
+        print(f"Ошибка при загрузке модели: {e}")
+        return None
 
-            if begin and middle and end:
-                break
 
-            if match_abs:
-                begin = 'abstract'
-                state = 'abstract'
+model = load_model()
 
-            elif match_key:
-                if state == 'abstract':
-                    middle = 'keywords'
-                elif state == 'introduction':
-                    end = 'keywords'
+
+def vectorize_text(text):
+    embeddings = model.encode(text)
+    return list(embeddings)
+
+
+def calculate_similarity(vec1, vec2):
+  return round(float(cos_sim(vec1, vec2)), 3)
+
+"""Извлекает текст из PDF-файла, обрабатывает ошибки"""
+# Считывание текста с pypdf
+def extract_text_from_pdf(filepath):
+    text = ""
+    try:
+        reader = pypdf.PdfReader(filepath)
+        num_pages = len(reader.pages)
+        text_list = []
+        for page_num in range(num_pages):
+            try:
+                page_text = reader.pages[page_num].extract_text()
+                if page_text:
+                    text_list.append(page_text.strip())
                 else:
-                    middle = 'keywords' if not middle else middle
-                state = 'keywords'
-
-            elif match_int:
-                if state == 'abstract':
-                    middle = 'introduction'
-                elif state == 'keywords':
-                    end = 'introduction'
-                else:
-                    middle = middle or 'introduction'
-                state = 'introduction'
-
-        return begin, middle, end
-
-    def get_text(self, text, strings):
-        abstract = None
-        keywords = None
-
-        match_abs = self.pattern_abs.search(text)
-        match_key = self.pattern_key.search(text)
-        match_int = self.pattern_int.search(text)
-
-        #match_back = self.pattern_back.search(text)
-        begin, middle, end = self.get_structure(strings)
-        print(begin, middle, end)
-        if begin == 'abstract' and match_abs:
-            if middle == 'keywords' and match_key:
-                abstract = text[match_abs.start():match_key.start()]
-            elif end == 'introduction' and match_int:
-                abstract = text[match_abs.start():match_int.start()]
-
-        if middle == 'keywords' and match_key and end == 'introduction' and match_int:
-            keywords = text[match_key.start():match_int.start()]
-            # introduction = text[match_int.start():]  # Assuming introduction starts from match_int.end()
-
-        return abstract, keywords
+                    print(f"⚠️ Страница {page_num + 1} не содержит текста")
+            except Exception as e:
+                print(f"Ошибка при обработке страницы {page_num + 1}: {e}")
+        text = '\n'.join(text_list)
+        text = text.replace('\xa0', ' ').replace('\x00', '')
+    except FileNotFoundError:
+        print(f"Файл {filepath} не найден.")
+    except Exception as e:
+        print(f"Общая ошибка при обработке файла {filepath}: {e}")
+    return text
 
 
 def preprocess(text):
     lower_text = text.lower()
     strings = lower_text.split('\n')
     return strings
+
+
+def get_sections(filepath):
+    section_texts = {}
+    text = extract_text_from_pdf(filepath)
+
+    pattern = re.compile(r"(?i)references|bibliography", re.DOTALL)
+    match = pattern.search(text)
+    if match:
+        section_texts['references'] = text[match.start():].strip()
+        text = text[:match.start()]
+
+    strings = preprocess(text)
+
+    section_embeddings = [vectorize_text(section) for section in sections]
+
+    start_time = time.time()
+    string_embeddings = [vectorize_text(string) for string in strings]
+    end_time = time.time()
+    print(f"Затраченное время {end_time - start_time}")
+
+    last_end = 0
+
+    for i, embeddings1 in enumerate(section_embeddings):
+        for j, embeddings2 in enumerate(string_embeddings):
+            sim = calculate_similarity(embeddings1, embeddings2)
+
+            if sim > 0.7:
+                print(sections[i])
+                print(f"Similarity: {sim:.3f}")
+
+                pattern = re.compile(re.escape(strings[j]), re.IGNORECASE)  # Экранируем спецсимволы
+                match = pattern.search(text)
+
+                if not match:
+                    print(f"⚠️ Строка '{strings[j]}' не найдена в тексте!")
+                    continue
+
+                start = match.start()
+
+                # Определяем границу следующей секции
+                if i < len(sections) - 1:
+                    next_section = sections[i + 1]
+                    next_pattern = re.compile(re.escape(next_section), re.IGNORECASE)
+                    next_match = next_pattern.search(text, start + len(strings[j]))
+
+                    next_start = next_match.start() if next_match else len(text)
+                else:
+                    next_start = len(text)
+
+                section_texts[sections[i]] = text[start:next_start].strip()
+                last_end = next_start
+                break  # Переход к следующей секции
+
+    if 'keywords' not in section_texts:
+        pattern = re.compile(
+            r"Keywords:\s*(.*?)\s*(?=\n{0,2}(?:Author|Supporting|Introduction|Background|Accepted|1\. Introduction))",
+            re.IGNORECASE | re.DOTALL
+        )
+        matches = pattern.findall(text)
+        if matches:
+            keywords = [match.replace("\n", " ").strip() for match in matches]
+            section_texts['keywords'] = ", ".join(keywords)
+    if 'abstract' not in section_texts:
+        pattern = re.compile(
+            r"Abstract\s*(.*?)\s*(?=\n{0,2}(?:Keywords|Introduction|Background))",
+            re.IGNORECASE | re.DOTALL
+        )
+        match = pattern.search(text)
+        if match:
+            section_texts['abstract'] = match.group(1).strip()
+    if 'materials and methods' in section_texts:
+        if 'methods' in section_texts:
+            del section_texts['methods']
+    if 'methodology' in section_texts:
+        if 'methods' in section_texts:
+            del section_texts['methods']
+    if 'results and discussion' in section_texts:
+        if 'results' in section_texts:
+            del section_texts['results']
+        if 'discussion' in section_texts:
+            del section_texts['discussion']
+    if 'conclusions' in section_texts:
+        if 'conclusion' in section_texts:
+            del section_texts['conclusion']
+
+    new_texts = section_texts.copy()
+
+    keys = list(section_texts.keys())
+    for i, key1 in enumerate(keys):
+        for j, key2 in enumerate(keys):
+            if i == j:
+                continue
+
+            text1 = section_texts[key1]
+            text2 = section_texts[key2]
+
+            overlap_index = text1.find(text2)
+
+            if overlap_index != -1:  # Overlap found
+                new_texts[key1] = text1[:overlap_index]
+
+    return new_texts
+
+
+def get_methods_dict():
+    path = os.path.join(DICT_PATH, 'dictionary.json')
+    with open(path, 'r', encoding='utf-8') as file:
+        methods_dict = json.load(file)
+    return methods_dict
+
+
+def check_methods(methods, abstract, method_list):
+    methods_dict = get_methods_dict()
+
+    if not methods and not abstract:
+        return False
+
+    matched_keys = []
+    for key, value in methods_dict.items():
+        if key in method_list:
+            if check_key_or_value(key, value, methods) or check_key_or_value(key, value, abstract):
+                matched_keys.append(key)
+    return matched_keys if matched_keys else False
+
+
+def check_key_or_value(key, value, check_list):
+    """ Функция проверки наличия ключа или значения в списке """
+    if not check_list:
+        return False
+    if key in check_list:
+        return True
+    if isinstance(value, list):
+        return any(val in check_list for val in value)
+    return value in check_list if isinstance(value, str) else False
+
+
+def authors_count(text):
+    pattern = re.compile(r'([A-Z][a-z]+),\s*([A-Z](?:\.\s*[A-Z]\.)*)')
+    authors = []
+    text = text.split('\n')
+    for ref in text:
+        matches = pattern.findall(ref)
+        for match in matches:
+            author = f"{match[0]} {match[1]}"  # Объединяем фамилию и инициалы
+            authors.append(author)
+    return dict(Counter(authors))

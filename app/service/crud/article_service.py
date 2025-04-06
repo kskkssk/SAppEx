@@ -8,8 +8,7 @@ class ArticleService:
         self.session = session
         self.query_session = QueryService(session)
 
-    def add(self, term, title, doi, summary, abstract, publication_date, full_text, database):
-        self.query_session.add(term)
+    def add(self, term, title, doi, summary, authors, publication_date, full_text, database, method_check):
         query = self.session.query(Query).filter_by(term=term).first()
         if not query:
             raise ValueError("Query with such term does not exist")
@@ -22,11 +21,12 @@ class ArticleService:
                 title=title,
                 doi=doi,
                 summary=summary,
-                abstract=abstract,
+                authors=authors,
                 publication_date=publication_date,
                 full_text=full_text,
                 database=database,
-                query=query
+                query=query,
+                method_check=method_check
             )
             self.session.add(new_article)
             self.session.commit()

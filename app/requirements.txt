@@ -20,4 +20,10 @@ alembic
 openai
 scidownl
 XlsxWriter
-
+fast-sentence-transformers[gpu]
+torch
+sentence-transformers
+python-socketio[asyncio_client]
+websockets
+python-docx
+openpyxl

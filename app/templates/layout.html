@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
 </head>
 <body>
     <svg xmlns="http://www.w3.org/2000/svg" class="d-none">
@@ -55,7 +56,6 @@
     <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"></path>
   </symbol>
 </svg>
-
 <div class="container py-3">
   <header>
     <div class="d-flex flex-column flex-md-row align-items-center pb-3 mb-4 border-bottom">
@@ -63,11 +63,13 @@
         <i class="bi bi-search-heart-fill" style="font-size: 2rem"></i>
         <span class="fs-4"> ArtiFind </span>
       </a>
-
+    <div class="d-flex ms-auto">
+      <a class="active" href="/"> Поиск </a>
+      <a href="/process"> Обработка </a>
     </div>
-
-    {% block content %}{% endblock %}
-
+    </div>
+  </header>
+  {% block content %}{% endblock %}
   <footer class="pt-4 my-md-5 pt-md-5 border-top" style="margin-top: auto;">
     <div class="row">
       <div class="col-12 col-md">
@@ -89,6 +91,9 @@
     </div>
   </footer>
 </div>
-<script src="/docs/5.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@2.3.0/dist/socket.io.slim.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.js" integrity="sha256-H+K7U5CnXl1h5ywQfKtSj8PCmoN9aaq30gDh27Xc0jk=" crossorigin="anonymous"></script>
+    <script src="{{ url_for('static', path='js/script.js') }}"></script>
 </body>
 </html>
