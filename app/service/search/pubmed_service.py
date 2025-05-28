@@ -10,7 +10,7 @@ import re
 import os
 
 def get_pubmed(search_term, method_list, sort="relevance", max_results=None, field=None, mindate=None, maxdate=None):
-    Entrez.email = 'kasha666tyrka@gmail.com'
+    Entrez.email = ''
     term = f"{search_term}[{field}]" if field else search_term
     article_ids = []
     try:
