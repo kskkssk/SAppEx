@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error("Ошибка:", error);
             });
 
-            let socket = new WebSocket("ws://0.0.0.0:8080/ws");
+            let socket = new WebSocket("ws://127.0.0.1:8080/ws");
 
             socket.onopen = function(e) {
                 console.log("[open] Соединение установлено");

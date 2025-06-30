@@ -1,14 +1,18 @@
-from fast_sentence_transformers import FastSentenceTransformer as SentenceTransformer
-from sentence_transformers.util import cos_sim
-from collections import Counter
-import torch
-import re
-import pypdf
-import time
 import os
+import re
+import time
 import json
+import torch
+import pypdf
+from openai import OpenAI
+from collections import Counter
+from sentence_transformers.util import cos_sim
+from fast_sentence_transformers import FastSentenceTransformer as SentenceTransformer
+import logging
 
+API_KEY = os.getenv('GPT_API')
 DICT_PATH = os.path.dirname(__file__)
+
 sections = [
         'abstract', 'keywords', 'introduction', 'background', 'methods', 'materials and methods', 'methodology',
         'results', 'discussion', 'results and discussion',
@@ -24,28 +28,27 @@ def sanitize_filename(title):
 
 def load_model(model_name="sentence-transformers/all-MiniLM-L6-v2"):
     try:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        model = SentenceTransformer(model_name, device=device)
+        #device = "cuda" if torch.cuda.is_available() else "cpu"
+        model = SentenceTransformer(model_name)
+        logging.info(f"Модель {model_name} успешно загружена.")
         return model
     except Exception as e:
         print(f"Ошибка при загрузке модели: {e}")
         return None
 
 
-model = load_model()
-
-
 def vectorize_text(text):
+    model = load_model()
     embeddings = model.encode(text)
     return list(embeddings)
 
 
 def calculate_similarity(vec1, vec2):
-  return round(float(cos_sim(vec1, vec2)), 3)
+    return round(float(cos_sim(vec1, vec2)), 3)
 
-"""Извлекает текст из PDF-файла, обрабатывает ошибки"""
-# Считывание текста с pypdf
+
 def extract_text_from_pdf(filepath):
+    """Извлекает текст из PDF-файла, обрабатывает ошибки"""
     text = ""
     try:
         reader = pypdf.PdfReader(filepath)
@@ -93,8 +96,6 @@ def get_sections(filepath):
     string_embeddings = [vectorize_text(string) for string in strings]
     end_time = time.time()
     print(f"Затраченное время {end_time - start_time}")
-
-    last_end = 0
 
     for i, embeddings1 in enumerate(section_embeddings):
         for j, embeddings2 in enumerate(string_embeddings):
@@ -220,3 +221,30 @@ def authors_count(text):
             author = f"{match[0]} {match[1]}"  # Объединяем фамилию и инициалы
             authors.append(author)
     return dict(Counter(authors))
+
+
+def send_text_chunks_to_gpt(text):
+    client = OpenAI(
+        api_key=API_KEY,
+    )
+    content = "-"
+    try:
+        first_response = client.chat.completions.create(
+            model="ft:gpt-4o-mini-2024-07-18:pygmalion::BJJMGKNu",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Ты помощник, который структурирует экспериментальные данные из научных текстов."
+                },
+                {
+                    "role": "user",
+                    "content": f"""Выведи методики из научной статьи по шаблону 1. Название методики; Объект; Оборудование; Материалы; Процедура; Результаты(если есть для этой методики). Используй этот текст: {text}"""
+                }
+            ]
+        )
+        # Обратите внимание на эту строку:
+        content = first_response.choices[0].message.content
+        print(content)
+    except Exception as e:
+        print(f"Ошибка при обработке чанка {text}: {e}")
+    return content

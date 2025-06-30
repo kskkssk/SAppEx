@@ -1,18 +1,15 @@
-from requests.exceptions import ConnectionError
+import os
+import time
+from Bio import Entrez, Medline
+from requests_html import HTMLSession
 from http.client import IncompleteRead
 from service.search.extract_service import *
-from requests_html import HTMLSession
-from Bio import Entrez, Medline
-from openai import OpenAI
-from urllib.error import URLError
-import time
-import re
-import os
+from requests.exceptions import ConnectionError
+
 
 def get_pubmed(search_term, method_list, sort="relevance", max_results=None, field=None, mindate=None, maxdate=None):
-    Entrez.email = ''
+    Entrez.email = 'kudasheva0.kudasheva@gmail.com'
     term = f"{search_term}[{field}]" if field else search_term
-    article_ids = []
     try:
         search_handle = Entrez.esearch(db="pubmed", term=term, retmax=max_results, sort=sort, datetype='pdat',
                                        mindate=mindate, maxdate=maxdate)
@@ -30,7 +27,6 @@ def get_pubmed(search_term, method_list, sort="relevance", max_results=None, fie
     records = Medline.parse(fetch_handle)
     for record in records:
         text = None
-        title = None
         references = None
         keywords = None
         results = None
@@ -38,10 +34,7 @@ def get_pubmed(search_term, method_list, sort="relevance", max_results=None, fie
         discussion = None
         methods = None
         conclusion = None
-        abstract = None
-        authors = None
-        ref_count = None
-        d = None
+
         title = record.get("TI", "N/A")
         sanitized_title = sanitize_filename(title)
         pmcid = record.get("PMC")

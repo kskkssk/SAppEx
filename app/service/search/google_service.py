@@ -1,13 +1,9 @@
-import subprocess
-import serpapi
-from pypdf import PdfReader
 import os
-import time
 import re
-from collections import Counter
+import serpapi
+import subprocess
 from service.search.extract_service import *
 from requests.exceptions import RequestException
-from service.search.extract_service import authors_count
 
 
 def download_article(command, output_file):

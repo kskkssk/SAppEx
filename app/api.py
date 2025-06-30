@@ -24,6 +24,7 @@ import socketio
 import time
 import zipfile
 import traceback
+import aiofiles
 import logging
 from logging.handlers import RotatingFileHandler
 import re
@@ -51,6 +52,7 @@ redis_instance = redis.Redis(host='redis', port=6379, db=0)
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 REDIS_URL = os.getenv('REDIS_URL')
+REDIS_URL = os.getenv('REDIS_URL')
 DB_HOST = os.getenv('DB_HOST')
 DB_PORT = os.getenv('DB_PORT')
 DB_USER = os.getenv('DB_USER')
@@ -74,6 +76,7 @@ def get_sector_service(db: Session = Depends(get_db)) -> SectorService:
 
 active_connections = []  # Хранилище активных WebSocket соединений
 
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -83,6 +86,7 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_text()
     except WebSocketDisconnect:
         active_connections.remove(websocket)
+
 
 async def update_progress(step: str, percent: int):
     for connection in active_connections:
@@ -308,37 +312,53 @@ async def search_articles(
 
 @app.get('/process')
 async def process(request: Request):
-    return templates.TemplateResponse(
-        request=request, name='process.html'
-    )
+    return templates.TemplateResponse(request=request, name='process.html')
 
 
 @app.post('/process/file')
-async def process(file: UploadFile = File(...),
-                  number: int = Form(...),
-                  method: List[str] = Form([]),
-                  section: List[str] = Form([])
-    ):
-    if "All" in method:
-        method_dict = get_methods_dict()
-        method = method_dict.keys()
+async def process_file(
+        file: UploadFile = File(...),
+        number: int = Form(...),
+        method: List[str] = Form([]),
+        section: List[str] = Form([])
+):
+    try:
+        logger.info(f"Starting file processing for {file.filename}")
 
-    filename = file.filename[:-5]
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    with open(filepath, "wb") as buffer:
-        buffer.write(await file.read())
+        if "All" in method:
+            method_dict = get_methods_dict()
+            method = list(method_dict.keys())
 
-    word_name = process_word(filename, number, method, section)
-    return FileResponse(word_name, media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                        filename=f"{filename}.docx")
+        filename = os.path.splitext(file.filename)[0]  # Без расширения
+        filepath = os.path.join(UPLOAD_FOLDER, filename + '.xlsx')
+
+        # Сохраняем файл
+        async with aiofiles.open(filepath, 'wb') as buffer:
+            await buffer.write(await file.read())
+
+        logger.info(f"File saved to {filepath}, starting processing...")
+        word_name = process_word(filename, number, method, section)
+
+        if not os.path.exists(word_name):
+            raise HTTPException(status_code=500, detail="Output file was not created")
+
+        return FileResponse(
+            word_name,
+            filename=f"{filename}.docx",
+            media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+
+    except Exception as e:
+        logger.error(f"Error processing file: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 def startup():
     init_db()
 
 
-app.mount('/search', socket_app)
-app.mount('/', socket_app)
+#app.mount('/search', socket_app)
+#app.mount('/', socket_app)
 
 if __name__ == '__main__':
-    uvicorn.run(app, host='0.0.0.0', port=8080)
+    uvicorn.run(socket_app, host='0.0.0.0', port=8080)
