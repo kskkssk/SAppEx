@@ -1,9 +1,6 @@
 # SAppEx
 
 SAppEx (Search App for Experimenters) is an AI-powered system for **automated search, segmentation, and analysis of scientific publications**.
-The service significantly reduces the time required to find relevant experimental methodologies in large scientific databases.
-
-SAppEx combines **semantic search, NLP, vector embeddings, and LLM-based extraction** to help researchers quickly identify relevant papers and experimental procedures.
 
 ---
 
